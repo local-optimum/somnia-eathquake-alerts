@@ -1,0 +1,394 @@
+---
+alwaysApply: true
+---
+
+# SDK Methods Guide
+
+Somnia Data Streams is the on-chain data streaming protocol that powers real-time, composable applications on the Somnia Network. It is available as an SDK Package <https://www.npmjs.com/package/@somnia-chain/streams>
+
+\
+This SDK exposes all the core functionality developers need to write, read, subscribe to, and manage Data Streams and events directly from their dApps.
+
+***
+
+Before using the Data Streams SDK, ensure you have a working Node.js or Next.js environment (Node 18+ recommended).\
+You’ll need access to a Somnia RPC endpoint (Testnet or Mainnet) and a wallet private key for publishing data.
+
+#### **Installation**
+
+Use npm, yarn, or pnpm:
+
+```bash
+# Using npm
+npm install @somnia-chain/streams viem dotenv
+
+# or with yarn
+yarn add @somnia-chain/streams viem dotenv
+```
+
+The SDK depends on [`viem`](https://viem.sh/) for blockchain interactions.
+
+***
+
+#### **Project Setup**
+
+Create a `.env.local` or `.env` file in your project root:
+
+```bash
+RPC_URL=https://dream-rpc.somnia.network
+PRIVATE_KEY=your_private_key_here
+```
+
+> ⚠️ **Never expose private keys** in client-side code.\
+> Keep writes (publishing data) in server routes or backend environments.
+
+***
+
+#### **Basic Initialization**
+
+You’ll typically use two clients:
+
+* A **public client** for reading and subscribing
+* A **wallet client** for writing to the Somnia chain
+
+```ts
+import { SDK } from '@somnia-chain/streams'
+import { createPublicClient, createWalletClient, http } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { somniaTestnet } from 'viem/chains'
+
+const rpcUrl = process.env.RPC_URL!
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`)
+
+const sdk = new SDK({
+  public: createPublicClient({ chain: somniaTestnet, transport: http(rpcUrl) }),
+  wallet: createWalletClient({ chain: somniaTestnet, account, transport: http(rpcUrl) })
+})
+```
+
+***
+
+#### **Quick Test**
+
+Verify your SDK setup by fetching a registered schema:
+
+```ts
+const exists = await sdk.streams.isDataSchemaRegistered(
+  '0x80fda840ee61c587e4ca61af66e60ce19f0ac64ad923a25f0b061875c84c20f2'
+)
+console.log('Schema registered?', exists)
+```
+
+If this returns `true`, your setup is complete — you’re ready to build!
+
+***
+
+## Somnia Data Streams
+
+Data Streams in Somnia represent **structured, verifiable data channels**.\
+Every piece of data conforms to a **schema** that defines its structure (e.g. `timestamp`, `content`, `sender`), and publishers can emit this data either as **on-chain transactions** or **off-chain event notifications**.
+
+The SDK follows a simple pattern:
+
+```ts
+const sdk = new SDK({
+  public: getPublicClient(),  // for reading and subscriptions
+  wallet: getWalletClient()   // for writing
+})
+```
+
+You’ll interact primarily through the `sdk.streams` interface.
+
+***
+
+## Core Methods Overview
+
+<table><thead><tr><th width="136.58331298828125">Category</th><th>Methods</th></tr></thead><tbody><tr><td><strong>Write</strong></td><td><a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-set"><code>set</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-emitevents"><code>emitEvents</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-setandemitevents"><code>setandEmitEvents</code></a></td></tr><tr><td><strong>Manage</strong></td><td><a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-registerdataschemas"><code>registerDataSchemas</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-registereventschemas"><code>registerEventSchemas</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-manageeventemittersforregisteredstreamsevent"><code>manageEventEmittersForRegisteredStreamsEvent</code></a></td></tr><tr><td><strong>Read</strong></td><td><a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-getbykey"><code>getByKey</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-getatindex"><code>getAtIndex</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-totalpublisherdataforschema"><code>totalPublisherDataForSchema</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-isdataschemaregistered"><code>isDataSchemaRegistered</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-computeschemaid"><code>computeSchemaId</code></a>, <a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-parentschemaid"><code>parentSchemaId</code></a></td></tr><tr><td><strong>Subscribe</strong></td><td><a href="https://chatgpt.com/g/g-p-675fdf0e14248191b0da59055be0f882/c/68d53bc0-6868-832c-8c2d-a8c43e70174c#-subscribe"><code>subscribe</code></a></td></tr></tbody></table>
+
+***
+
+## WRITE METHODS
+
+### `set(d: DataStream[]): Promise<Hex | null>`
+
+#### **Description**
+
+Publishes one or more **data streams** to the Somnia blockchain.\
+Each stream must specify a `schema ID`, a `unique ID`, and the `encoded payload`.
+
+#### **Use Case**
+
+When you want to store data on-chain in a standardized format (e.g., chat messages, sensor telemetry, or leaderboard updates).
+
+#### **Example**
+
+```ts
+const tx = await sdk.streams.set([
+  { id: dataId, schemaId, data }
+])
+console.log('Data published with tx hash:', tx)
+```
+
+Always register your schema before calling `set()` ; otherwise, the transaction will revert.
+
+***
+
+### `emitEvents(e: EventStream[]): Promise<Hex | Error | null>`
+
+#### **Description**
+
+Emits a registered Streams event **without persisting new data**.\
+This is used for **off-chain reactivity**, triggering listeners subscribed via WebSocket.
+
+#### **Example**
+
+```ts
+await sdk.streams.emitEvents([
+  {
+    id: 'ChatMessage',
+    argumentTopics: [topic],
+    data: '0x' // optional encoded payload
+  }
+])
+```
+
+Common Use includes notifying subscribers when something happens, e.g., “new message sent” or “order filled”.
+
+***
+
+### `setAndEmitEvents(d: DataStream[], e: EventStream[]): Promise<Hex | Error | null>`
+
+#### **Description**
+
+Performs an **atomic on-chain operation** that both writes data and emits a corresponding event. This ensures your data and notifications are always in sync.
+
+#### **Example**
+
+```ts
+await sdk.streams.setAndEmitEvents(
+  [{ id: dataId, schemaId, data }],
+  [{ id: 'ChatMessage', argumentTopics: [topic], data: '0x' }]
+)
+```
+
+It is ideal for chat apps, game updates, or IoT streams — where data must be recorded and instantly broadcast.
+
+***
+
+## MANAGEMENT METHODS
+
+### `registerDataSchemas(registrations: DataSchemaRegistration[]): Promise<Hex | Error | null>`
+
+#### **Description**
+
+Registers a new **data schema** on-chain.\
+Schemas define the structure of your Streams data, like a table schema in a database.
+
+#### **Example**
+
+```ts
+await sdk.streams.registerDataSchemas([
+  {
+    id: "chat",
+    schema: 'uint64 timestamp, string message, address sender',
+    parentSchemaId: zeroBytes32 // root schema
+  }
+])
+```
+
+Register before writing any new data type. If you modify the schema structure later, register it again as a **new schema version**.
+
+***
+
+### `registerEventSchemas(ids: string[], schemas: EventSchema[]): Promise<Hex | Error | null>`
+
+#### **Description**
+
+Registers event definitions that can later be **emitted** or **subscribed to**.
+
+#### **Example**
+
+```ts
+await sdk.streams.registerEventSchemas(
+  ['ChatMessage'],
+  [{
+    params: [{ name: 'roomId', paramType: 'bytes32', isIndexed: true }],
+    eventTopic: 'ChatMessage(bytes32 indexed roomId)'
+  }]
+)
+```
+
+Use before calling `emitEvents()` or `subscribe()` for a specific event.
+
+***
+
+### `manageEventEmittersForRegisteredStreamsEvent(streamsEventId, emitter, isEmitter): Promise<Hex | Error | null>`
+
+#### **Description**
+
+Grants or revokes permission for an address to emit a specific event.
+
+#### **Example**
+
+```ts
+await sdk.streams.manageEventEmittersForRegisteredStreamsEvent(
+  'ChatMessage',
+  '0x1234abcd...',
+  true // allow this address to emit
+)
+```
+
+Used for access control in multi-publisher systems.
+
+***
+
+## READ METHODS
+
+### `getByKey(schemaId, publisher, key): Promise<Hex[] | SchemaDecodedItem[][] | null>`
+
+#### **Description**
+
+Retrieves data stored under a schema by its unique ID.
+
+#### **Example**
+
+```ts
+const msg = await sdk.streams.getByKey(schemaId, publisher, dataId)
+console.log('Data:', msg)
+```
+
+An example includes fetching a specific record, e.g., “fetch message by message ID”.
+
+***
+
+### `getAtIndex(schemaId, publisher, idx): Promise<Hex[] | SchemaDecodedItem[][] | null>`
+
+#### **Description**
+
+Fetches the record at a given index (0-based).
+
+#### **Example**
+
+```ts
+const record = await sdk.streams.getAtIndex(schemaId, publisher, 0n)
+```
+
+It is useful for sequential datasets like logs or telemetry streams.
+
+***
+
+### `totalPublisherDataForSchema(schemaId, publisher): Promise<bigint | null>`
+
+#### **Description**
+
+Returns how many records a publisher has stored under a schema.
+
+#### **Example**
+
+```ts
+const total = await sdk.streams.totalPublisherDataForSchema(schemaId, publisher)
+console.log(`Total entries: ${total}`)
+```
+
+***
+
+### `isDataSchemaRegistered(schemaId): Promise<boolean | null>`
+
+#### **Description**
+
+Checks if a schema exists on-chain.
+
+#### **Example**
+
+```ts
+const exists = await sdk.streams.isDataSchemaRegistered(schemaId)
+if (!exists) console.log('Schema not found')
+```
+
+***
+
+### `computeSchemaId(schema): Promise<Hex | null>`
+
+#### **Description**
+
+Computes the deterministic `schemaId` without registering it.
+
+#### **Example**
+
+```ts
+const schemaId = await sdk.streams.computeSchemaId('uint64 timestamp, string content')
+```
+
+***
+
+### `parentSchemaId(schemaId): Promise<Hex | null>`
+
+#### **Description**
+
+Finds the parent schema of a given schema, if one exists.
+
+#### **Example**
+
+```ts
+const parent = await sdk.streams.parentSchemaId(schemaId)
+console.log('Parent Schema ID:', parent)
+```
+
+***
+
+## SUBSCRIBE METHOD
+
+### `subscribe(params: SubscriptionInitParams): Promise<{ subscriptionId, unsubscribe } | undefined>`
+
+#### **Description**
+
+Creates a **real-time WebSocket subscription** to a Streams event.\
+Whenever the specified event fires, the SDK calls your `onData` callback — optionally including enriched data from on-chain calls.
+
+#### **Example**
+
+```ts
+await sdk.streams.subscribe({
+    somniaStreamsEventId: "Firework",
+    ethCalls,
+    onData: (data) => {}
+})
+```
+
+#### **With `ethCalls`**&#x20;
+
+<pre class="language-ts"><code class="lang-ts">await sdk.streams.subscribe({
+  somniaStreamsEventId: 'TradeExecuted',
+  ethCalls: [{
+    to: '0xERC20Address',
+    data: encodeFunctionData({
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: ['0xUserAddress']
+    })
+  }],
+  onData: (data) => console.log('Trade + balance data:', data)
+<strong>})
+</strong></code></pre>
+
+Useful for **off-chain reactivity**: real-time dashboards, chat updates, live feeds, or notifications.
+
+#### **Notes**
+
+* Requires `createPublicClient({ transport: webSocket() })`
+* Use `setAndEmitEvents()` on the publisher side to trigger matching subscriptions.
+
+***
+
+## Key Types Reference
+
+<table><thead><tr><th width="226.89581298828125">Type</th><th>Description</th></tr></thead><tbody><tr><td><strong><code>DataStream</code></strong></td><td><code>{ id: Hex, schemaId: Hex, data: Hex }</code> – Used with <code>set()</code> or <code>setAndEmitEvents()</code>.</td></tr><tr><td><strong><code>EventStream</code></strong></td><td><code>{ id: string, argumentTopics: Hex[], data: Hex }</code> – Used with <code>emitEvents()</code> and <code>setAndEmitEvents()</code>.</td></tr><tr><td><strong><code>DataSchemaRegistration</code></strong></td><td><code>{ id: string, schema: string, parentSchemaId: Hex }</code> – For <code>registerDataSchemas()</code>.</td></tr><tr><td><strong><code>EventSchema</code></strong></td><td><code>{ params: EventParameter[], eventTopic: string }</code> – For <code>registerEventSchemas()</code>.</td></tr><tr><td><strong><code>EthCall</code></strong></td><td><code>{ to: Address, data: Hex }</code> – Defines on-chain calls for event enrichment.</td></tr></tbody></table>
+
+***
+
+## Developer Tips
+
+* Always compute your schema ID locally before deploying: `await sdk.streams.computeSchemaId(schema)`.
+* For chat-like or telemetry apps, pair `setAndEmitEvents()` (write) with `subscribe()` (read).
+* Use `zeroBytes32` for base schemas that don’t extend others.
+* All write methods return **transaction hashes,** use `waitForTransactionReceipt()` to confirm.
