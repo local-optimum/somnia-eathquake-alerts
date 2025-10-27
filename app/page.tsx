@@ -20,6 +20,12 @@ export default function Home() {
   const [playbackSpeed, setPlaybackSpeed] = useState(10)
   const [isLoading, setIsLoading] = useState(true)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // Track when component is mounted (client-side only)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   
   // Callback for new earthquakes (real-time)
   const handleNewEarthquake = useCallback((quake: Earthquake) => {
@@ -37,7 +43,7 @@ export default function Home() {
     
     // Send browser notification for significant earthquakes
     if (notificationsEnabled && quake.magnitude >= 4.5) {
-      if ('Notification' in window && Notification.permission === 'granted') {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
         new Notification(`M${quake.magnitude.toFixed(1)} Earthquake`, {
           body: quake.location,
           icon: '/earthquake-icon.png',
@@ -69,7 +75,7 @@ export default function Home() {
   
   // Request notification permission
   const requestNotifications = async () => {
-    if ('Notification' in window) {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
       const permission = await Notification.requestPermission()
       if (permission === 'granted') {
         setNotificationsEnabled(true)
@@ -105,8 +111,8 @@ export default function Home() {
             </p>
           </div>
           
-          {/* Notification toggle */}
-          {!notificationsEnabled && 'Notification' in window && (
+          {/* Notification toggle - only render on client */}
+          {isMounted && !notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && (
             <button
               onClick={requestNotifications}
               className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors flex items-center gap-2"
@@ -115,7 +121,7 @@ export default function Home() {
             </button>
           )}
           
-          {notificationsEnabled && (
+          {isMounted && notificationsEnabled && (
             <div className="text-green-400 flex items-center gap-2">
               ✅ Notifications enabled
             </div>
@@ -150,7 +156,7 @@ export default function Home() {
       <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-320px)]">
         {/* Map - takes up 2 columns */}
         <div className="lg:col-span-2 h-full">
-          {isLoading ? (
+          {!isMounted || isLoading ? (
             <div className="glass-strong rounded-xl h-full flex items-center justify-center">
               <div className="text-center">
                 <div className="animate-spin text-6xl mb-4">🌍</div>
