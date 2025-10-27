@@ -18,6 +18,7 @@ export default function Home() {
   const [timeRangeEnd, setTimeRangeEnd] = useState(Date.now())
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(10)
+  const [newEarthquakeForPan, setNewEarthquakeForPan] = useState<Earthquake | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -44,6 +45,9 @@ export default function Home() {
   // Callback for new earthquakes (real-time notifications)
   const handleNewEarthquake = useCallback((quake: Earthquake) => {
     console.log('🆕 New earthquake detected:', quake)
+    
+    // Set earthquake for map to pan to
+    setNewEarthquakeForPan(quake)
     
     // Send browser notification for significant earthquakes
     if (notificationsEnabled && quake.magnitude >= 4.5) {
@@ -96,6 +100,11 @@ export default function Home() {
   const handleTimeRangeChange = useCallback((start: number, end: number) => {
     setTimeRangeStart(start)
     setTimeRangeEnd(end)
+  }, [])
+  
+  // Handle play/pause toggle (memoized to prevent React render errors)
+  const handlePlayPauseToggle = useCallback(() => {
+    setIsPlaying(prev => !prev)
   }, [])
   
   // Request notification permission
@@ -218,6 +227,8 @@ export default function Home() {
               earthquakes={earthquakes}
               timeRangeStart={timeRangeStart}
               timeRangeEnd={timeRangeEnd}
+              newEarthquake={newEarthquakeForPan}
+              onPanComplete={() => setNewEarthquakeForPan(null)}
             />
           )}
         </div>
@@ -229,7 +240,7 @@ export default function Home() {
             earthquakes={earthquakes}
             onTimeRangeChange={handleTimeRangeChange}
             isPlaying={isPlaying}
-            onPlayPauseToggle={() => setIsPlaying(!isPlaying)}
+            onPlayPauseToggle={handlePlayPauseToggle}
             playbackSpeed={playbackSpeed}
             onSpeedChange={setPlaybackSpeed}
           />

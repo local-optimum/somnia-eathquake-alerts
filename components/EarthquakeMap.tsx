@@ -10,6 +10,8 @@ interface EarthquakeMapProps {
   earthquakes: Earthquake[]
   timeRangeStart: number
   timeRangeEnd: number
+  newEarthquake?: Earthquake | null
+  onPanComplete?: () => void
 }
 
 // Helper to get color based on magnitude
@@ -45,6 +47,38 @@ function AutoFitBounds({ earthquakes }: { earthquakes: Earthquake[] }) {
     map.fitBounds([southWest, northEast], { padding: [50, 50], maxZoom: 4 })
     hasFitBoundsRef.current = true
   }, [map, earthquakes])
+  
+  return null
+}
+
+// Component to pan to new earthquakes
+function PanToEarthquake({ 
+  earthquake, 
+  onComplete 
+}: { 
+  earthquake: Earthquake | null | undefined
+  onComplete?: () => void 
+}) {
+  const map = useMap()
+  const lastPannedIdRef = useRef<string | null>(null)
+  
+  useEffect(() => {
+    if (!earthquake || lastPannedIdRef.current === earthquake.earthquakeId) return
+    
+    // Pan to earthquake location with zoom
+    map.flyTo([earthquake.latitude, earthquake.longitude], 6, {
+      duration: 1.5 // 1.5 second animation
+    })
+    
+    lastPannedIdRef.current = earthquake.earthquakeId
+    
+    // Call completion callback after animation
+    const timer = setTimeout(() => {
+      onComplete?.()
+    }, 1600)
+    
+    return () => clearTimeout(timer)
+  }, [earthquake, map, onComplete])
   
   return null
 }
@@ -135,7 +169,13 @@ function PulsingMarker({ earthquake, currentTime }: { earthquake: Earthquake; cu
   )
 }
 
-export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: EarthquakeMapProps) {
+export function EarthquakeMap({ 
+  earthquakes, 
+  timeRangeStart, 
+  timeRangeEnd,
+  newEarthquake,
+  onPanComplete 
+}: EarthquakeMapProps) {
   // Filter earthquakes within time range AND less than 1 hour old from current viewing position
   const ONE_HOUR_MS = 60 * 60 * 1000
   const visibleQuakes = earthquakes.filter(q => {
@@ -165,6 +205,11 @@ export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: Ear
         {/* Auto-fit bounds */}
         {mapReady && visibleQuakes.length > 0 && (
           <AutoFitBounds earthquakes={visibleQuakes} />
+        )}
+        
+        {/* Pan to new earthquakes */}
+        {mapReady && newEarthquake && (
+          <PanToEarthquake earthquake={newEarthquake} onComplete={onPanComplete} />
         )}
         
         {/* Render all visible earthquakes with fade-out effect */}
