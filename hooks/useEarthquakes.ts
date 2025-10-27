@@ -69,6 +69,16 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
           
           if (!data || !Array.isArray(data)) continue
           
+          // Debug: Log the data structure for first earthquake
+          if (i === BigInt(0)) {
+            console.log('🔍 First earthquake data structure:', {
+              type: typeof data[0],
+              isString: typeof data[0] === 'string',
+              length: data.length,
+              sample: data[0]
+            })
+          }
+          
           // SDK can return decoded data (SchemaDecodedItem[][]) or hex strings (Hex[])
           // If it's already decoded, it will be an array of objects with {name, type, value}
           // If it's hex, it will be an array with a single hex string
@@ -82,6 +92,11 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
             // It's already decoded SchemaDecodedItem[][] 
             // The SDK returns nested arrays, so we need to flatten first
             const decoded = (data as unknown as Array<Array<{ value: string | number | bigint }>>)[0] || []
+            
+            if (i === BigInt(0)) {
+              console.log('🔍 Decoded structure:', decoded)
+            }
+            
             quake = {
               earthquakeId: String(decoded[0]?.value || ''),
               location: String(decoded[1]?.value || ''),
@@ -91,6 +106,10 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               longitude: Number(decoded[5]?.value || 0) / 1000000,
               timestamp: Number(decoded[6]?.value || 0),
               url: String(decoded[7]?.value || '')
+            }
+            
+            if (i === BigInt(0)) {
+              console.log('🔍 Parsed earthquake:', quake)
             }
           }
           

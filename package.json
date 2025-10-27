@@ -19,7 +19,7 @@
     "dev-sync:watch": "tsx scripts/dev-sync.ts --watch"
   },
   "dependencies": {
-    "@somnia-chain/streams": "^0.7.2",
+    "@somnia-chain/streams": "^0.8.0",
     "dotenv": "^17.2.3",
     "leaflet": "^1.9.4",
     "next": "16.0.0",
