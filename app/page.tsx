@@ -36,15 +36,7 @@ export default function Home() {
       time: new Date(q.timestamp).toISOString()
     })))
     
-    // Only update if we're getting a reasonable number of earthquakes
-    // This prevents the WebSocket from overwriting a good initial fetch with partial data
-    if (quakes.length >= 40) {
-      console.log('   ✅ Accepting WebSocket update (sufficient data)')
-      setEarthquakes(quakes)
-    } else {
-      console.warn(`   ⚠️ Ignoring WebSocket update - only ${quakes.length} earthquakes (expected 40+)`)
-      console.warn('   This suggests getAllPublisherDataForSchema via ethCalls is returning partial data')
-    }
+    setEarthquakes(quakes)
   }, [])
   
   // Callback for new earthquakes (real-time notifications)
