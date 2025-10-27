@@ -172,9 +172,6 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               
               for (const encodedData of bytesArray) {
                 try {
-                  // Log the data format to help debug
-                  console.log('🔍 Decoding data type:', typeof encodedData, 'length:', encodedData.length)
-                  
                   const quake = decodeEarthquake(encodedData)
                   if (quake.magnitude >= minMagnitude) {
                     earthquakes.push(quake)
@@ -188,7 +185,15 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               // Sort by timestamp (newest first)
               earthquakes.sort((a, b) => b.timestamp - a.timestamp)
               
+              console.log(`🔍 Decoded ${earthquakes.length} earthquakes total`)
+              console.log('🔍 Sample:', earthquakes.slice(0, 3).map(q => ({
+                id: q.earthquakeId.slice(0, 10),
+                mag: q.magnitude.toFixed(1),
+                location: q.location.slice(0, 30)
+              })))
+              
               if (earthquakes.length > 0 && isSubscribed) {
+                console.log(`📤 Updating state with ${earthquakes.length} earthquakes`)
                 // Update the full list of earthquakes
                 onEarthquakesUpdateRef.current(earthquakes)
                 
