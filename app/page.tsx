@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useEarthquakes } from '@/hooks/useEarthquakes'
 import { Timeline } from '@/components/Timeline'
+import { MAGNITUDE_COLORS, MAGNITUDE_THRESHOLDS } from '@/lib/constants'
 import type { Earthquake } from '@/types/earthquake'
 
 // Dynamically import map to avoid SSR issues with Leaflet
@@ -11,6 +12,15 @@ const EarthquakeMap = dynamic(
   () => import('@/components/EarthquakeMap').then(mod => mod.EarthquakeMap),
   { ssr: false, loading: () => <div className="h-full flex items-center justify-center">Loading map...</div> }
 )
+
+// Helper to get magnitude color
+function getMagnitudeColor(magnitude: number): string {
+  if (magnitude >= MAGNITUDE_THRESHOLDS.EXTREME) return MAGNITUDE_COLORS.EXTREME
+  if (magnitude >= MAGNITUDE_THRESHOLDS.SEVERE) return MAGNITUDE_COLORS.SEVERE
+  if (magnitude >= MAGNITUDE_THRESHOLDS.STRONG) return MAGNITUDE_COLORS.STRONG
+  if (magnitude >= MAGNITUDE_THRESHOLDS.MODERATE) return MAGNITUDE_COLORS.MODERATE
+  return MAGNITUDE_COLORS.MINOR
+}
 
 export default function Home() {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
@@ -284,7 +294,9 @@ export default function Home() {
                 >
                   <div className="flex items-start justify-between mb-1">
                     <span className="font-bold text-lg">
-                      M{quake.magnitude.toFixed(1)}
+                      M<span style={{ color: getMagnitudeColor(quake.magnitude) }}>
+                        {quake.magnitude.toFixed(1)}
+                      </span>
                     </span>
                     <span className="text-xs text-gray-400">
                       {new Date(quake.timestamp).toLocaleTimeString()}
