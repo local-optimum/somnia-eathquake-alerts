@@ -14,46 +14,19 @@ import { resolve } from 'path'
 // Load environment variables FIRST
 config({ path: resolve(process.cwd(), '.env.local') })
 
-import { SDK } from '@somnia-chain/streams'
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { getSDK } from '../lib/sdk'
+import { EARTHQUAKE_SCHEMA } from '../lib/constants'
 import { privateKeyToAccount } from 'viem/accounts'
-import { somniaTestnet } from '@/lib/chains'
-import { EARTHQUAKE_SCHEMA } from '@/lib/constants'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as const
 
-// Initialize account
-const privateKey = process.env.ORACLE_PRIVATE_KEY?.trim()
-let formattedKey = privateKey
-if (formattedKey && !formattedKey.startsWith('0x')) {
-  formattedKey = `0x${formattedKey}`
-}
-
-const ORACLE_ACCOUNT = privateKeyToAccount(formattedKey as `0x${string}`)
-
-// Initialize SDK
-const publicClient = createPublicClient({
-  chain: somniaTestnet,
-  transport: http(process.env.RPC_URL)
-})
-
-const walletClient = createWalletClient({
-  chain: somniaTestnet,
-  account: ORACLE_ACCOUNT,
-  transport: http(process.env.RPC_URL)
-})
-
-const sdk = new SDK({
-  public: publicClient,
-  wallet: walletClient
-})
-
 async function main() {
   console.log('🚀 Starting schema deployment...\n')
-  console.log('Oracle address:', ORACLE_ACCOUNT.address)
+
+  const sdk = getSDK()
   
   // Step 1: Compute Schema ID
-  console.log('\n📝 Computing earthquake schema ID...')
+  console.log('📝 Computing earthquake schema ID...')
   const schemaId = await sdk.streams.computeSchemaId(EARTHQUAKE_SCHEMA)
   console.log(`✅ Schema ID: ${schemaId}`)
   console.log(`   Schema: ${EARTHQUAKE_SCHEMA}\n`)
@@ -68,7 +41,7 @@ async function main() {
     } else {
       const schemaTx = await sdk.streams.registerDataSchemas([
         {
-          id: 'earthquake',
+          id: 'earthquake_event_v1',
           schema: EARTHQUAKE_SCHEMA,
           parentSchemaId: ZERO_BYTES32,
         },
@@ -109,11 +82,21 @@ async function main() {
     }
   }
   
+  // Step 4: Get publisher address
+  const privateKey = process.env.ORACLE_PRIVATE_KEY?.trim()
+  let formattedKey = privateKey
+  if (formattedKey && !formattedKey.startsWith('0x')) {
+    formattedKey = `0x${formattedKey}`
+  }
+  
+  const account = privateKeyToAccount(formattedKey as `0x${string}`)
+  const publisherAddress = account.address
+  
   // Output configuration
   console.log('✅ Deployment complete!\n')
   console.log('📋 Add these to your .env.local file:\n')
   console.log(`NEXT_PUBLIC_EARTHQUAKE_SCHEMA_ID=${schemaId}`)
-  console.log(`NEXT_PUBLIC_PUBLISHER_ADDRESS=${ORACLE_ACCOUNT.address}\n`)
+  console.log(`NEXT_PUBLIC_PUBLISHER_ADDRESS=${publisherAddress}\n`)
 }
 
 main()
