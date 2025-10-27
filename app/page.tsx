@@ -136,6 +136,14 @@ export default function Home() {
     q.timestamp <= timeRangeEnd
   )
   
+  // Recent Activity always shows earthquakes relative to "now", not scrubber position
+  const now = Date.now()
+  const activityWindow = 24 * 60 * 60 * 1000 // Always show last 24 hours in activity list
+  const recentActivityQuakes = earthquakes.filter(q => 
+    q.timestamp >= (now - activityWindow) && 
+    q.timestamp <= now
+  )
+  
   // Debug: Log visible quakes calculation
   useEffect(() => {
     if (earthquakes.length > 0) {
@@ -262,13 +270,13 @@ export default function Home() {
           {/* Recent earthquakes list */}
           <div className="glass-strong rounded-xl p-4">
             <h3 className="font-bold text-lg mb-3">
-              Recent Activity
+              Recent Activity (Last 24h)
               <span className="ml-2 text-sm text-gray-400 font-normal">
-                ({visibleQuakes.length})
+                ({recentActivityQuakes.length})
               </span>
             </h3>
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {visibleQuakes.map(quake => (
+              {recentActivityQuakes.map(quake => (
                 <button
                   key={quake.earthquakeId}
                   onClick={() => handleEarthquakeClick(quake)}
@@ -289,9 +297,9 @@ export default function Home() {
                 </button>
               ))}
               
-              {visibleQuakes.length === 0 && (
+              {recentActivityQuakes.length === 0 && (
                 <p className="text-center text-gray-500 py-8">
-                  No earthquakes in selected time range
+                  No earthquakes in the last 24 hours
                 </p>
               )}
             </div>
