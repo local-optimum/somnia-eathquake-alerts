@@ -249,7 +249,7 @@ export default function Home() {
           {!isMounted || isLoading ? (
             <div className="glass-strong rounded-xl h-full flex items-center justify-center">
               <div className="text-center">
-                <div className="animate-spin text-6xl mb-4">🌍</div>
+                <div className="animate-pulse text-6xl mb-4">📊</div>
                 <p className="text-xl">Loading earthquake data...</p>
               </div>
             </div>
