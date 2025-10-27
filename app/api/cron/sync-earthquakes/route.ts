@@ -19,7 +19,8 @@ const MIN_MAGNITUDE = 2.0
 // Track last processed earthquake to avoid duplicates
 // In production, you'd want to use a database for this
 let lastProcessedId: string | null = null
-let lastProcessedTime: number = Date.now()
+// Start 7 days in the past so we pick up existing earthquakes on first run
+let lastProcessedTime: number = Date.now() - (7 * 24 * 60 * 60 * 1000)
 
 /**
  * Vercel Cron Job: Syncs earthquake data from USGS to Somnia blockchain
