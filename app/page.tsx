@@ -1,65 +1,231 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
+import { useEarthquakes } from '@/hooks/useEarthquakes'
+import { Timeline } from '@/components/Timeline'
+import type { Earthquake } from '@/types/earthquake'
+
+// Dynamically import map to avoid SSR issues with Leaflet
+const EarthquakeMap = dynamic(
+  () => import('@/components/EarthquakeMap').then(mod => mod.EarthquakeMap),
+  { ssr: false, loading: () => <div className="h-full flex items-center justify-center">Loading map...</div> }
+)
 
 export default function Home() {
+  const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
+  const [timeRangeStart, setTimeRangeStart] = useState(Date.now() - 24 * 60 * 60 * 1000)
+  const [timeRangeEnd, setTimeRangeEnd] = useState(Date.now())
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackSpeed, setPlaybackSpeed] = useState(10)
+  const [isLoading, setIsLoading] = useState(true)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  
+  // Callback for new earthquakes (real-time)
+  const handleNewEarthquake = useCallback((quake: Earthquake) => {
+    console.log('🆕 New earthquake detected:', quake)
+    
+    setEarthquakes(prev => {
+      // Avoid duplicates
+      if (prev.some(q => q.earthquakeId === quake.earthquakeId)) {
+        return prev
+      }
+      
+      // Add to start (newest first)
+      return [quake, ...prev]
+    })
+    
+    // Send browser notification for significant earthquakes
+    if (notificationsEnabled && quake.magnitude >= 4.5) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`M${quake.magnitude.toFixed(1)} Earthquake`, {
+          body: quake.location,
+          icon: '/earthquake-icon.png',
+          tag: quake.earthquakeId
+        })
+      }
+    }
+  }, [notificationsEnabled])
+  
+  // Subscribe to earthquakes
+  const { fetchInitialQuakes } = useEarthquakes({
+    onNewEarthquake: handleNewEarthquake,
+    minMagnitude: 2.0
+  })
+  
+  // Load initial data
+  useEffect(() => {
+    fetchInitialQuakes().then(quakes => {
+      setEarthquakes(quakes)
+      setIsLoading(false)
+    })
+  }, [fetchInitialQuakes])
+  
+  // Handle timeline changes
+  const handleTimeRangeChange = useCallback((start: number, end: number) => {
+    setTimeRangeStart(start)
+    setTimeRangeEnd(end)
+  }, [])
+  
+  // Request notification permission
+  const requestNotifications = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission()
+      if (permission === 'granted') {
+        setNotificationsEnabled(true)
+      }
+    }
+  }
+  
+  // Calculate stats
+  const visibleQuakes = earthquakes.filter(q => 
+    q.timestamp >= timeRangeStart && 
+    q.timestamp <= timeRangeEnd
+  )
+  
+  const maxMagnitude = earthquakes.length > 0
+    ? Math.max(...earthquakes.map(q => q.magnitude))
+    : 0
+  
+  const avgMagnitude = earthquakes.length > 0
+    ? earthquakes.reduce((sum, q) => sum + q.magnitude, 0) / earthquakes.length
+    : 0
+  
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-gray-900 text-white p-4">
+      {/* Header */}
+      <header className="mb-6">
+        <div className="max-w-[1800px] mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">
+              🌍 Real-Time Earthquake Monitor
+            </h1>
+            <p className="text-gray-400">
+              Powered by Somnia Data Streams • Data from USGS
+            </p>
+          </div>
+          
+          {/* Notification toggle */}
+          {!notificationsEnabled && 'Notification' in window && (
+            <button
+              onClick={requestNotifications}
+              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors flex items-center gap-2"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              🔔 Enable Alerts
+            </button>
+          )}
+          
+          {notificationsEnabled && (
+            <div className="text-green-400 flex items-center gap-2">
+              ✅ Notifications enabled
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+      
+      {/* Stats bar */}
+      <div className="max-w-[1800px] mx-auto mb-6 grid grid-cols-4 gap-4">
+        <div className="glass-strong rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold">{earthquakes.length}</div>
+          <div className="text-sm text-gray-400">Total Earthquakes</div>
+        </div>
+        
+        <div className="glass-strong rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold">{visibleQuakes.length}</div>
+          <div className="text-sm text-gray-400">In Current View</div>
+        </div>
+        
+        <div className="glass-strong rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold">M{maxMagnitude.toFixed(1)}</div>
+          <div className="text-sm text-gray-400">Max Magnitude</div>
+        </div>
+        
+        <div className="glass-strong rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold">M{avgMagnitude.toFixed(1)}</div>
+          <div className="text-sm text-gray-400">Average Magnitude</div>
+        </div>
+      </div>
+      
+      {/* Main content */}
+      <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-320px)]">
+        {/* Map - takes up 2 columns */}
+        <div className="lg:col-span-2 h-full">
+          {isLoading ? (
+            <div className="glass-strong rounded-xl h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin text-6xl mb-4">🌍</div>
+                <p className="text-xl">Loading earthquake data...</p>
+              </div>
+            </div>
+          ) : (
+            <EarthquakeMap
+              earthquakes={earthquakes}
+              timeRangeStart={timeRangeStart}
+              timeRangeEnd={timeRangeEnd}
             />
-            Deploy Now
-          </a>
+          )}
+        </div>
+        
+        {/* Sidebar */}
+        <div className="space-y-6 h-full overflow-y-auto">
+          {/* Timeline controls */}
+          <Timeline
+            earthquakes={earthquakes}
+            onTimeRangeChange={handleTimeRangeChange}
+            isPlaying={isPlaying}
+            onPlayPauseToggle={() => setIsPlaying(!isPlaying)}
+            playbackSpeed={playbackSpeed}
+            onSpeedChange={setPlaybackSpeed}
+          />
+          
+          {/* Recent earthquakes list */}
+          <div className="glass-strong rounded-xl p-4">
+            <h3 className="font-bold text-lg mb-3">Recent Activity</h3>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {visibleQuakes.slice(0, 10).map(quake => (
+                <div
+                  key={quake.earthquakeId}
+                  className="bg-gray-800/50 rounded-lg p-3 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-1">
+                    <span className="font-bold text-lg">
+                      M{quake.magnitude.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(quake.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-300">{quake.location}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Depth: {quake.depth.toFixed(1)} km
+                  </p>
+                </div>
+              ))}
+              
+              {visibleQuakes.length === 0 && (
+                <p className="text-center text-gray-500 py-8">
+                  No earthquakes in selected time range
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Footer */}
+      <footer className="max-w-[1800px] mx-auto mt-6 text-center text-sm text-gray-500">
+        <p>
+          Built with Somnia Data Streams • Earthquake data from{' '}
           <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="https://earthquake.usgs.gov/"
             target="_blank"
             rel="noopener noreferrer"
+            className="text-red-400 hover:underline"
           >
-            Documentation
+            USGS
           </a>
-        </div>
-      </main>
+        </p>
+      </footer>
     </div>
-  );
+  )
 }
