@@ -29,13 +29,22 @@ export default function Home() {
   
   // Callback for updating full earthquake list (from WebSocket ethCalls)
   const handleEarthquakesUpdate = useCallback((quakes: Earthquake[]) => {
-    console.log(`📊 Earthquake list updated: ${quakes.length} total`)
+    console.log(`📊 Earthquake list updated via WebSocket: ${quakes.length} total`)
     console.log('   Sample earthquakes:', quakes.slice(0, 3).map(q => ({
       mag: q.magnitude.toFixed(1),
       location: q.location.slice(0, 30),
       time: new Date(q.timestamp).toISOString()
     })))
-    setEarthquakes(quakes)
+    
+    // Only update if we're getting a reasonable number of earthquakes
+    // This prevents the WebSocket from overwriting a good initial fetch with partial data
+    if (quakes.length >= 40) {
+      console.log('   ✅ Accepting WebSocket update (sufficient data)')
+      setEarthquakes(quakes)
+    } else {
+      console.warn(`   ⚠️ Ignoring WebSocket update - only ${quakes.length} earthquakes (expected 40+)`)
+      console.warn('   This suggests getAllPublisherDataForSchema via ethCalls is returning partial data')
+    }
   }, [])
   
   // Callback for new earthquakes (real-time notifications)
@@ -63,8 +72,9 @@ export default function Home() {
   
   // Load initial data
   useEffect(() => {
+    console.log('🚀 Starting initial earthquake fetch...')
     fetchInitialQuakes().then(quakes => {
-      console.log('📊 Loaded earthquakes:', quakes.length)
+      console.log(`✅ Initial fetch complete: ${quakes.length} earthquakes loaded`)
       if (quakes.length > 0) {
         // Debug: Show timestamp info
         const now = Date.now()
@@ -81,6 +91,9 @@ export default function Home() {
         console.log(`🕐 Earthquakes in last 24h: ${recentQuakes.length}`)
       }
       setEarthquakes(quakes)
+      setIsLoading(false)
+    }).catch(err => {
+      console.error('❌ Initial fetch failed:', err)
       setIsLoading(false)
     })
   }, [fetchInitialQuakes])

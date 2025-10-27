@@ -12,6 +12,8 @@
     "start": "next start",
     "lint": "eslint",
     "register-schema": "tsx scripts/register-earthquake-schema.ts",
+    "show-address": "tsx scripts/show-publisher-address.ts",
+    "check-data": "tsx scripts/check-onchain-data.ts",
     "dev-sync": "tsx scripts/dev-sync.ts",
     "dev-sync:force": "tsx scripts/dev-sync.ts --force",
     "dev-sync:watch": "tsx scripts/dev-sync.ts --watch"

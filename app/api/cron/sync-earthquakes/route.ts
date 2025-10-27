@@ -117,10 +117,14 @@ export async function GET(request: NextRequest) {
       
       console.log(`  📍 M${quake.magnitude.toFixed(1)} - ${quake.location}`)
       console.log(`     Time: ${new Date(quake.timestamp).toISOString()}`)
+      console.log(`     ID: ${quake.earthquakeId}`)
       
       // Prepare data stream (stores earthquake data)
+      const hexId = toHex(quake.earthquakeId, { size: 32 })
+      console.log(`     Hex ID: ${hexId}`)
+      
       dataStreams.push({
-        id: toHex(quake.earthquakeId, { size: 32 }),
+        id: hexId,
         schemaId: EARTHQUAKE_SCHEMA_ID,
         data: encodeEarthquake(quake)
       })
@@ -135,10 +139,23 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Step 4: Publish to blockchain (atomic operation)
+    // Step 4: Publish to blockchain
+    // NOTE: Publishing one at a time to ensure all earthquakes are stored
+    // Batch publishing seems to only store the last item
     console.log('📤 Publishing to Somnia blockchain...')
-    const txHash = await sdk.streams.setAndEmitEvents(dataStreams, eventStreams)
-    console.log('✅ Published! TX:', txHash)
+    const txHashes: string[] = []
+    
+    for (let i = 0; i < dataStreams.length; i++) {
+      try {
+        const txHash = await sdk.streams.setAndEmitEvents([dataStreams[i]], [eventStreams[i]])
+        txHashes.push(txHash as string)
+        console.log(`   ✓ Published earthquake ${i + 1}/${dataStreams.length}: ${txHash}`)
+      } catch (error) {
+        console.error(`   ✗ Failed to publish earthquake ${i + 1}:`, error)
+      }
+    }
+    
+    console.log(`✅ Published ${txHashes.length}/${dataStreams.length} earthquakes!`)
     
     // Update tracking (remember the most recent earthquake)
     const mostRecent = newQuakes[newQuakes.length - 1]
@@ -153,7 +170,7 @@ export async function GET(request: NextRequest) {
       newQuakes: newQuakes.length,
       totalFetched: data.features.length,
       minMagnitude: MIN_MAGNITUDE,
-      txHash,
+      txHashes,
       duration,
       earthquakes: newQuakes.map(q => ({
         id: q.id,
