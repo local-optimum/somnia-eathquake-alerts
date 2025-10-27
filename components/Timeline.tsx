@@ -31,18 +31,19 @@ export function Timeline({
     setIsMounted(true)
   }, [])
   
-  // SIMPLE: Slider represents the END time of the viewing window
-  // - Slider max is ALWAYS "now"
-  // - Slider min is a reasonable history (e.g., 7 days back)
-  // - The timeWindow (1h, 24h, 7d) determines the SIZE of the window
-  // - Visible earthquakes are from (currentTime - timeWindow) to currentTime
+  // SIMPLE: Slider is PURELY time-based, earthquakes don't affect it
+  // - Slider RIGHT = NOW
+  // - Slider LEFT = NOW - selected time window
+  // - Example: "Last 1 Hour" = slider from (now - 1h) to now
+  // - Example: "Last 7 Days" = slider from (now - 7d) to now
+  // - Earthquakes just display within the window, wherever you are
   
   const now = Date.now()
-  const minTime = earthquakes.length > 0 
-    ? Math.min(...earthquakes.map(q => q.timestamp))
-    : now - 7 * 24 * 60 * 60 * 1000 // Allow scrubbing back 7 days
-  
   const maxTime = now // RIGHT side is ALWAYS now
+  
+  const minTime = timeWindow === Infinity
+    ? (earthquakes.length > 0 ? Math.min(...earthquakes.map(q => q.timestamp)) : now - 7 * 24 * 60 * 60 * 1000)
+    : now - timeWindow // LEFT side is now minus the selected window
   
   // Auto-play effect: moves forward toward "now"
   useEffect(() => {
