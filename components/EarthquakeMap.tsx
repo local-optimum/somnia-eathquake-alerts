@@ -223,8 +223,8 @@ export function EarthquakeMap({
         <h4 className="font-bold text-sm mb-2">Magnitude</h4>
         <div className="space-y-1 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: MAGNITUDE_COLORS.EXTREME }} />
-            <span>8.0+ Extreme</span>
+            <div className="w-4 h-4 rounded-full border border-gray-600" style={{ backgroundColor: MAGNITUDE_COLORS.EXTREME }} />
+            <span>9.0+ Extreme</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: MAGNITUDE_COLORS.SEVERE }} />

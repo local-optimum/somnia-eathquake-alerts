@@ -5,21 +5,19 @@ export const PUBLISHER_ADDRESS = process.env.NEXT_PUBLIC_PUBLISHER_ADDRESS as `0
 
 // Magnitude thresholds for notifications
 export const MAGNITUDE_THRESHOLDS = {
-  MINOR: 2.5,      // Don't notify
-  LIGHT: 4.0,      // Optional notify
+  MINOR: 2.0,      // Don't notify
   MODERATE: 4.5,   // Always notify
   STRONG: 6.0,     // Urgent notify
-  MAJOR: 7.0,      // Critical notify
-  GREAT: 8.0       // Emergency notify
+  SEVERE: 7.0,     // Critical notify
+  EXTREME: 9.0     // Apocalyptic notify (extremely rare!)
 } as const
 
 // Magnitude colors for visualization
 export const MAGNITUDE_COLORS = {
   MINOR: '#4ade80',      // Green
-  LIGHT: '#facc15',      // Yellow
   MODERATE: '#fb923c',   // Orange
   STRONG: '#f87171',     // Red
-  MAJOR: '#dc2626',      // Dark red
-  GREAT: '#991b1b'       // Very dark red
+  SEVERE: '#a855f7',     // Purple
+  EXTREME: '#ffffff'     // White (rarest, most extreme)
 } as const
 
