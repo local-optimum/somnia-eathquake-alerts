@@ -41,15 +41,6 @@ export default function Home() {
   
   // Callback for updating full earthquake list (from WebSocket ethCalls)
   const handleEarthquakesUpdate = useCallback((quakes: Earthquake[]) => {
-    console.log(`📊 Earthquake list updated via WebSocket: ${quakes.length} total`)
-    console.log('   Sample earthquakes:', quakes.slice(0, 3).map(q => ({
-      mag: q.magnitude.toFixed(1),
-      location: q.location.slice(0, 30),
-      lat: q.latitude,
-      lon: q.longitude,
-      time: new Date(q.timestamp).toISOString()
-    })))
-    
     setEarthquakes(quakes)
   }, [])
   
@@ -153,31 +144,6 @@ export default function Home() {
     q.timestamp >= (now - activityWindow) && 
     q.timestamp <= now
   )
-  
-  // Debug: Log visible quakes calculation
-  useEffect(() => {
-    if (earthquakes.length > 0) {
-      console.log('📊 Visibility Debug:')
-      console.log('  Total earthquakes:', earthquakes.length)
-      console.log('  Time range:', {
-        start: new Date(timeRangeStart).toISOString(),
-        end: new Date(timeRangeEnd).toISOString(),
-        windowHours: ((timeRangeEnd - timeRangeStart) / (1000 * 60 * 60)).toFixed(1)
-      })
-      console.log('  Visible quakes:', visibleQuakes.length)
-      
-      if (visibleQuakes.length < earthquakes.length) {
-        console.log('  ⚠️ Some earthquakes are outside the visible range!')
-        const invisible = earthquakes.filter(q => q.timestamp < timeRangeStart || q.timestamp > timeRangeEnd)
-        console.log('  Invisible quakes:', invisible.length, invisible.map(q => ({
-          mag: q.magnitude.toFixed(1),
-          time: new Date(q.timestamp).toISOString(),
-          beforeStart: q.timestamp < timeRangeStart,
-          afterEnd: q.timestamp > timeRangeEnd
-        })))
-      }
-    }
-  }, [earthquakes, timeRangeStart, timeRangeEnd, visibleQuakes.length])
   
   const maxMagnitude = earthquakes.length > 0
     ? Math.max(...earthquakes.map(q => q.magnitude))
