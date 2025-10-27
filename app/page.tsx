@@ -30,6 +30,11 @@ export default function Home() {
   // Callback for updating full earthquake list (from WebSocket ethCalls)
   const handleEarthquakesUpdate = useCallback((quakes: Earthquake[]) => {
     console.log(`📊 Earthquake list updated: ${quakes.length} total`)
+    console.log('   Sample earthquakes:', quakes.slice(0, 3).map(q => ({
+      mag: q.magnitude.toFixed(1),
+      location: q.location.slice(0, 30),
+      time: new Date(q.timestamp).toISOString()
+    })))
     setEarthquakes(quakes)
   }, [])
   

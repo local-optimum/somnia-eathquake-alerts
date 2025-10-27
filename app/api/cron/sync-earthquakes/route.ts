@@ -77,16 +77,22 @@ export async function GET(request: NextRequest) {
         // Filter by magnitude
         if (quake.properties.mag < MIN_MAGNITUDE) return false
         
-        // Filter by time - only get quakes newer than last check
-        // This helps avoid re-processing on restarts
-        if (quake.properties.time <= lastProcessedTime) return false
+        // Filter by time - use < instead of <= to catch earthquakes with same timestamp
+        if (quake.properties.time < lastProcessedTime) return false
         
-        // Skip if we've already processed this specific ID
+        // Skip the last processed ID specifically (handles same-timestamp case)
         if (lastProcessedId && quake.id === lastProcessedId) return false
         
         return true
       })
       .sort((a, b) => a.properties.time - b.properties.time) // Oldest first
+    
+    console.log(`   After filtering: ${newQuakes.length} new earthquakes`)
+    if (newQuakes.length > 0 && newQuakes.length < 5) {
+      newQuakes.forEach(q => {
+        console.log(`   - ${q.id}: M${q.properties.mag} at ${new Date(q.properties.time).toISOString()}`)
+      })
+    }
     
     if (newQuakes.length === 0) {
       console.log('✅ No new earthquakes since last check')

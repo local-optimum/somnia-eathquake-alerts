@@ -130,6 +130,16 @@ export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: Ear
     q.timestamp <= timeRangeEnd
   )
   
+  // Debug logging
+  console.log('🗺️ EarthquakeMap render:', {
+    totalEarthquakes: earthquakes.length,
+    visibleQuakes: visibleQuakes.length,
+    timeRange: {
+      start: new Date(timeRangeStart).toISOString(),
+      end: new Date(timeRangeEnd).toISOString()
+    }
+  })
+  
   // Track if map is ready
   const [mapReady, setMapReady] = useState(false)
   
