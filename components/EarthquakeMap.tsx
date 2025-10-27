@@ -204,12 +204,7 @@ export function EarthquakeMap({
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
         
-        {/* Auto-fit bounds */}
-        {mapReady && visibleQuakes.length > 0 && (
-          <AutoFitBounds earthquakes={visibleQuakes} />
-        )}
-        
-        {/* Pan to new earthquakes */}
+        {/* Pan to earthquakes only when user clicks on them in Recent Activity */}
         {mapReady && newEarthquake && (
           <PanToEarthquake earthquake={newEarthquake} onComplete={onPanComplete} />
         )}

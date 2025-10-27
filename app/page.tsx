@@ -47,8 +47,8 @@ export default function Home() {
   const handleNewEarthquake = useCallback((quake: Earthquake) => {
     console.log('🆕 New earthquake detected:', quake)
     
-    // Set earthquake for map to pan to
-    setNewEarthquakeForPan(quake)
+    // Don't auto-pan to new earthquakes - let user control the view
+    // Only pan when they explicitly click on an earthquake in Recent Activity
     
     // Send browser notification for significant earthquakes
     if (notificationsEnabled && quake.magnitude >= 4.5) {
