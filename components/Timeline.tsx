@@ -191,11 +191,11 @@ export function Timeline({
       </div>
       
       {/* Controls */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-2">
         {/* Play/Pause */}
         <button
           onClick={onPlayPauseToggle}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center gap-2 min-w-[100px] justify-center"
+          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 w-[80px] justify-center"
         >
           {isPlaying ? (
             <>⏸️ Pause</>
@@ -204,15 +204,15 @@ export function Timeline({
           )}
         </button>
         
-        {/* Speed control */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">Speed:</span>
-          <div className="flex gap-1">
+        {/* Speed control - centered */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400">Speed:</span>
+          <div className="flex gap-0.5">
             {[1, 5, 10, 30, 60].map(speed => (
               <button
                 key={speed}
                 onClick={() => onSpeedChange(speed)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
+                className={`px-2 py-1 rounded text-xs transition-colors ${
                   playbackSpeed === speed
                     ? 'bg-red-600 text-white'
                     : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -227,9 +227,9 @@ export function Timeline({
         {/* Reset to now */}
         <button
           onClick={handleReset}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
+          className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs transition-colors w-[80px] justify-center flex items-center gap-1"
         >
-          ⏮️ Reset to Now
+          ⏮️ Reset
         </button>
       </div>
       
