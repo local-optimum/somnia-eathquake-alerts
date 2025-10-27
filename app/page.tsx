@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useEarthquakes } from '@/hooks/useEarthquakes'
 import { Timeline } from '@/components/Timeline'
@@ -33,11 +33,22 @@ export default function Home() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [jumpToTime, setJumpToTime] = useState<number | null>(null)
+  const [newEarthquakeId, setNewEarthquakeId] = useState<string | null>(null)
+  const newQuakeRef = useRef<HTMLDivElement>(null)
   
   // Track when component is mounted (client-side only)
   useEffect(() => {
     setIsMounted(true)
   }, [])
+  
+  // Auto-scroll to new earthquake in Recent Activity
+  useEffect(() => {
+    if (newEarthquakeId && newQuakeRef.current) {
+      setTimeout(() => {
+        newQuakeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 100) // Small delay to ensure DOM is updated
+    }
+  }, [newEarthquakeId])
   
   // Callback for updating full earthquake list (from WebSocket ethCalls)
   const handleEarthquakesUpdate = useCallback((quakes: Earthquake[]) => {
@@ -47,6 +58,14 @@ export default function Home() {
   // Callback for new earthquakes (real-time notifications)
   const handleNewEarthquake = useCallback((quake: Earthquake) => {
     console.log('🆕 New earthquake detected:', quake)
+    
+    // Mark as new and scroll to it
+    setNewEarthquakeId(quake.earthquakeId)
+    
+    // Clear "NEW" badge after 5 seconds
+    setTimeout(() => {
+      setNewEarthquakeId(null)
+    }, 5000)
     
     // Don't auto-pan to new earthquakes - let user control the view
     // Only pan when they explicitly click on an earthquake in Recent Activity
@@ -252,28 +271,43 @@ export default function Home() {
               </span>
             </h3>
             <div className="space-y-2 overflow-y-auto lg:flex-1 max-h-[500px] lg:max-h-none">
-              {recentActivityQuakes.map(quake => (
-                <button
-                  key={quake.earthquakeId}
-                  onClick={() => handleEarthquakeClick(quake)}
-                  className="w-full bg-gray-800/50 rounded-lg p-3 hover:bg-gray-700 transition-colors text-left cursor-pointer"
-                >
-                  <div className="flex items-start justify-between mb-1">
-                    <span className="font-bold text-lg">
-                      M<span style={{ color: getMagnitudeColor(quake.magnitude) }}>
-                        {quake.magnitude.toFixed(1)}
+              {recentActivityQuakes.map(quake => {
+                const isNew = quake.earthquakeId === newEarthquakeId
+                return (
+                  <button
+                    key={quake.earthquakeId}
+                    ref={isNew ? newQuakeRef : null}
+                    onClick={() => handleEarthquakeClick(quake)}
+                    className={`w-full rounded-lg p-3 hover:bg-gray-700 transition-all text-left cursor-pointer ${
+                      isNew 
+                        ? 'bg-yellow-900/30 animate-pulse-glow ring-2 ring-yellow-500/50' 
+                        : 'bg-gray-800/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">
+                          M<span style={{ color: getMagnitudeColor(quake.magnitude) }}>
+                            {quake.magnitude.toFixed(1)}
+                          </span>
+                        </span>
+                        {isNew && (
+                          <span className="px-2 py-0.5 bg-yellow-500 text-black text-xs font-bold rounded animate-pulse">
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(quake.timestamp).toLocaleTimeString()}
                       </span>
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(quake.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-300">{quake.location}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Depth: {quake.depth.toFixed(1)} km • Click to view
-                  </p>
-                </button>
-              ))}
+                    </div>
+                    <p className="text-sm text-gray-300">{quake.location}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Depth: {quake.depth.toFixed(1)} km • Click to view
+                    </p>
+                  </button>
+                )
+              })}
               
               {recentActivityQuakes.length === 0 && (
                 <p className="text-center text-gray-500 py-8">
