@@ -198,14 +198,32 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
             try {
               const { result } = data as { result?: { simulationResults?: readonly `0x${string}`[] } }
               
-              if (result?.simulationResults && result.simulationResults.length > 0) {
-                const rawResult = result.simulationResults[0]
-                const [bytesArray] = decodeAbiParameters(
-                  [{ name: 'data', type: 'bytes[]' }],
-                  rawResult
-                ) as [readonly `0x${string}`[]]
-                
-                if (bytesArray && bytesArray.length > 0) {
+              if (!result?.simulationResults) {
+                console.warn('⚠️  No simulationResults in event data:', data)
+                return
+              }
+              
+              if (result.simulationResults.length === 0) {
+                console.warn('⚠️  simulationResults array is empty')
+                return
+              }
+              
+              console.log(`✅ Processing simulationResults with ${result.simulationResults.length} result(s)`)
+              
+              const rawResult = result.simulationResults[0]
+              const [bytesArray] = decodeAbiParameters(
+                [{ name: 'data', type: 'bytes[]' }],
+                rawResult
+              ) as [readonly `0x${string}`[]]
+              
+              if (!bytesArray || bytesArray.length === 0) {
+                console.warn('⚠️  Decoded bytesArray is empty or null')
+                return
+              }
+              
+              console.log(`✅ Decoded ${bytesArray.length} earthquake record(s) from ethCall`)
+              
+              if (bytesArray && bytesArray.length > 0) {
                   const earthquakes: Earthquake[] = []
                   
                   for (const encodedData of bytesArray) {
@@ -221,24 +239,34 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
                   
                   earthquakes.sort((a, b) => b.timestamp - a.timestamp)
                   
-                  if (earthquakes.length > 0 && isSubscribed) {
-                    const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
-                    const newQuakes = earthquakes.filter(q => !existingIds.has(q.earthquakeId))
-                    
-                    console.log(`📊 Event analysis: ${earthquakes.length} total, ${currentEarthquakes.length} existing, ${newQuakes.length} new`)
-                    
-                    if (newQuakes.length > 0) {
-                      currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
-                      onEarthquakesUpdateRef.current(currentEarthquakes)
-                      console.log(`🔔 New: M${newQuakes[0].magnitude.toFixed(1)} - ${newQuakes[0].location}`)
-                      onNewEarthquakeRef.current(newQuakes[0])
-                      previousCountRef.current = currentEarthquakes.length
-                    } else {
-                      console.log(`ℹ️  All ${earthquakes.length} earthquakes from event already in list (duplicates)`)
-                    }
+                  console.log(`✅ After filtering: ${earthquakes.length} earthquake(s) with magnitude >= ${minMagnitude}`)
+                  
+                  if (earthquakes.length === 0) {
+                    console.log(`ℹ️  All earthquakes from event were filtered out (magnitude < ${minMagnitude})`)
+                    return
+                  }
+                  
+                  if (!isSubscribed) {
+                    console.warn(`⚠️  Received earthquakes but isSubscribed=${isSubscribed}, ignoring`)
+                    return
+                  }
+                  
+                  const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
+                  const newQuakes = earthquakes.filter(q => !existingIds.has(q.earthquakeId))
+                  
+                  console.log(`📊 Event analysis: ${earthquakes.length} total, ${currentEarthquakes.length} existing, ${newQuakes.length} new`)
+                  
+                  if (newQuakes.length > 0) {
+                    currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
+                    console.log(`📤 Calling onEarthquakesUpdate with ${currentEarthquakes.length} total earthquakes`)
+                    onEarthquakesUpdateRef.current(currentEarthquakes)
+                    console.log(`🔔 New: M${newQuakes[0].magnitude.toFixed(1)} - ${newQuakes[0].location}`)
+                    onNewEarthquakeRef.current(newQuakes[0])
+                    previousCountRef.current = currentEarthquakes.length
+                  } else {
+                    console.log(`ℹ️  All ${earthquakes.length} earthquakes from event already in list (duplicates)`)
                   }
                 }
-              }
             } catch (error) {
               console.error('❌ Failed to process ethCall result:', error)
               refetchAndMerge() // Fallback to HTTP fetch
