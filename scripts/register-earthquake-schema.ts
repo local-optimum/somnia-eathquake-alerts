@@ -14,7 +14,7 @@ import { resolve } from 'path'
 // Load environment variables FIRST
 config({ path: resolve(process.cwd(), '.env.local') })
 
-import { getSDK } from '../lib/sdk'
+import { getSDK, getPublicClient } from '../lib/sdk'
 import { EARTHQUAKE_SCHEMA } from '../lib/constants'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -70,7 +70,15 @@ async function main() {
         eventTopic: 'EarthquakeDetected(uint16 indexed magnitude)'
       }]
     )
-    console.log(`✅ Event schema registered! TX: ${eventTx}\n`)
+    console.log(`✅ Event schema registered! TX: ${eventTx}`)
+    
+    // Wait for transaction confirmation
+    if (eventTx) {
+      console.log('⏳ Waiting for transaction confirmation...')
+      const publicClient = getPublicClient()
+      await publicClient.waitForTransactionReceipt({ hash: eventTx as `0x${string}` })
+      console.log('✅ Transaction confirmed!\n')
+    }
   } catch (error) {
     const err = error as Error
     // EventSchemaAlreadyRegistered is expected and fine
