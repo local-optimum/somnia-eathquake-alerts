@@ -190,13 +190,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-gray-900 text-white p-4">
       {/* Header */}
-      <header className="mb-6">
-        <div className="max-w-[1800px] mx-auto flex items-center justify-between">
+      <header className="mb-4 sm:mb-6">
+        <div className="max-w-[1800px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold mb-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
               🌍 Real-Time Earthquake Monitor
             </h1>
-            <p className="text-gray-400">
+            <p className="text-sm sm:text-base text-gray-400">
               Powered by Somnia Data Streams • Data from USGS
             </p>
           </div>
@@ -205,14 +205,14 @@ export default function Home() {
           {isMounted && !notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && (
             <button
               onClick={requestNotifications}
-              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors flex items-center gap-2"
+              className="px-3 py-2 sm:px-4 text-sm sm:text-base bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               🔔 Enable Alerts
             </button>
           )}
           
           {isMounted && notificationsEnabled && (
-            <div className="text-green-400 flex items-center gap-2">
+            <div className="text-green-400 flex items-center gap-2 text-sm sm:text-base">
               ✅ Notifications enabled
             </div>
           )}
@@ -220,32 +220,32 @@ export default function Home() {
       </header>
       
       {/* Stats bar */}
-      <div className="max-w-[1800px] mx-auto mb-6 grid grid-cols-4 gap-4">
-        <div className="glass-strong rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold">{earthquakes.length}</div>
-          <div className="text-sm text-gray-400">Total Earthquakes</div>
+      <div className="max-w-[1800px] mx-auto mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="glass-strong rounded-lg p-3 sm:p-4 text-center">
+          <div className="text-2xl sm:text-3xl font-bold">{earthquakes.length}</div>
+          <div className="text-xs sm:text-sm text-gray-400">Total Earthquakes</div>
         </div>
         
-        <div className="glass-strong rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold">{visibleQuakes.length}</div>
-          <div className="text-sm text-gray-400">In Current View</div>
+        <div className="glass-strong rounded-lg p-3 sm:p-4 text-center">
+          <div className="text-2xl sm:text-3xl font-bold">{visibleQuakes.length}</div>
+          <div className="text-xs sm:text-sm text-gray-400">In Current View</div>
         </div>
         
-        <div className="glass-strong rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold">M{maxMagnitude.toFixed(1)}</div>
-          <div className="text-sm text-gray-400">Max Magnitude</div>
+        <div className="glass-strong rounded-lg p-3 sm:p-4 text-center">
+          <div className="text-2xl sm:text-3xl font-bold">M{maxMagnitude.toFixed(1)}</div>
+          <div className="text-xs sm:text-sm text-gray-400">Max Magnitude</div>
         </div>
         
-        <div className="glass-strong rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold">M{avgMagnitude.toFixed(1)}</div>
-          <div className="text-sm text-gray-400">Average Magnitude</div>
+        <div className="glass-strong rounded-lg p-3 sm:p-4 text-center">
+          <div className="text-2xl sm:text-3xl font-bold">M{avgMagnitude.toFixed(1)}</div>
+          <div className="text-xs sm:text-sm text-gray-400">Average Magnitude</div>
         </div>
       </div>
       
       {/* Main content */}
-      <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-320px)]">
+      <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-320px)]">
         {/* Map - takes up 2 columns */}
-        <div className="lg:col-span-2 h-full">
+        <div className="lg:col-span-2 h-[400px] lg:h-full">
           {!isMounted || isLoading ? (
             <div className="glass-strong rounded-xl h-full flex items-center justify-center">
               <div className="text-center">
@@ -265,7 +265,7 @@ export default function Home() {
         </div>
         
         {/* Sidebar */}
-        <div className="flex flex-col gap-6 h-full overflow-hidden">
+        <div className="flex flex-col gap-6 lg:h-full lg:overflow-hidden">
           {/* Timeline controls */}
           <Timeline
             earthquakes={earthquakes}
@@ -278,14 +278,14 @@ export default function Home() {
           />
           
           {/* Recent earthquakes list - fills remaining space */}
-          <div className="glass-strong rounded-xl p-4 flex flex-col flex-1 min-h-0">
+          <div className="glass-strong rounded-xl p-4 flex flex-col lg:flex-1 lg:min-h-0">
             <h3 className="font-bold text-lg mb-3 flex-shrink-0">
               Recent Activity (Last 24h)
               <span className="ml-2 text-sm text-gray-400 font-normal">
                 ({recentActivityQuakes.length})
               </span>
             </h3>
-            <div className="space-y-2 overflow-y-auto flex-1">
+            <div className="space-y-2 overflow-y-auto lg:flex-1 max-h-[500px] lg:max-h-none">
               {recentActivityQuakes.map(quake => (
                 <button
                   key={quake.earthquakeId}
@@ -320,9 +320,27 @@ export default function Home() {
       </div>
       
       {/* Footer */}
-      <footer className="max-w-[1800px] mx-auto mt-6 text-center text-sm text-gray-500">
+      <footer className="max-w-[1800px] mx-auto mt-6 text-center text-xs sm:text-sm text-gray-500">
         <p>
-          Built with Somnia Data Streams • Earthquake data from{' '}
+          Built by{' '}
+          <a
+            href="https://github.com/local-optimum"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            local-optimum
+          </a>
+          {' '}with{' '}
+          <a
+            href="https://datastreams.somnia.network/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:underline"
+          >
+            Somnia Data Streams
+          </a>
+          {' • '}Earthquake data from{' '}
           <a
             href="https://earthquake.usgs.gov/"
             target="_blank"
