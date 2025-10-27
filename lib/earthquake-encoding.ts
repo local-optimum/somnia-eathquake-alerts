@@ -3,6 +3,7 @@ import { decodeAbiParameters } from 'viem'
 import { EARTHQUAKE_SCHEMA } from './constants'
 import type { Earthquake, USGSEarthquake } from '@/types/earthquake'
 
+// SchemaEncoder for encoding data to blockchain
 const encoder = new SchemaEncoder(EARTHQUAKE_SCHEMA)
 
 /**
@@ -41,57 +42,32 @@ export function encodeEarthquake(quake: Earthquake): `0x${string}` {
 
 /**
  * Decode blockchain data back to earthquake
- * Uses viem's decodeAbiParameters for client-side compatibility
+ * Uses viem's decodeAbiParameters for universal compatibility
  */
 export function decodeEarthquake(data: `0x${string}`): Earthquake {
-  try {
-    // Try SchemaEncoder first (works in Node/server)
-    const decoded = encoder.decode(data)
-    
-    return {
-      earthquakeId: decoded[0].value as string,
-      location: decoded[1].value as string,
-      magnitude: (Number(decoded[2].value) / 10),
-      depth: (Number(decoded[3].value) / 1000),
-      latitude: (Number(decoded[4].value) / 1000000),
-      longitude: (Number(decoded[5].value) / 1000000),
-      timestamp: Number(decoded[6].value),
-      url: decoded[7].value as string
-    }
-  } catch (error) {
-    // Fallback: Use viem's decodeAbiParameters (works in browser)
-    const [earthquakeId, location, magnitude, depth, latitude, longitude, timestamp, url] = decodeAbiParameters(
-      [
-        { name: 'earthquakeId', type: 'string' },
-        { name: 'location', type: 'string' },
-        { name: 'magnitude', type: 'uint16' },
-        { name: 'depth', type: 'uint32' },
-        { name: 'latitude', type: 'int32' },
-        { name: 'longitude', type: 'int32' },
-        { name: 'timestamp', type: 'uint64' },
-        { name: 'url', type: 'string' }
-      ],
-      data
-    )
-    
-    console.log('🔍 Decoded values:', {
-      earthquakeId,
-      location,
-      magnitude: `${magnitude} → ${Number(magnitude) / 10}`,
-      latitude: `${latitude} → ${Number(latitude) / 1000000}`,
-      longitude: `${longitude} → ${Number(longitude) / 1000000}`
-    })
-    
-    return {
-      earthquakeId: earthquakeId as string,
-      location: location as string,
-      magnitude: Number(magnitude) / 10,
-      depth: Number(depth) / 1000,
-      latitude: Number(latitude) / 1000000,
-      longitude: Number(longitude) / 1000000,
-      timestamp: Number(timestamp),
-      url: url as string
-    }
+  const [earthquakeId, location, magnitude, depth, latitude, longitude, timestamp, url] = decodeAbiParameters(
+    [
+      { name: 'earthquakeId', type: 'string' },
+      { name: 'location', type: 'string' },
+      { name: 'magnitude', type: 'uint16' },
+      { name: 'depth', type: 'uint32' },
+      { name: 'latitude', type: 'int32' },
+      { name: 'longitude', type: 'int32' },
+      { name: 'timestamp', type: 'uint64' },
+      { name: 'url', type: 'string' }
+    ],
+    data
+  )
+  
+  return {
+    earthquakeId: earthquakeId as string,
+    location: location as string,
+    magnitude: Number(magnitude) / 10,
+    depth: Number(depth) / 1000,
+    latitude: Number(latitude) / 1000000,
+    longitude: Number(longitude) / 1000000,
+    timestamp: Number(timestamp),
+    url: url as string
   }
 }
 
