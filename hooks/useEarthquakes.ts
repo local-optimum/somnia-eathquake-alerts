@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { encodeFunctionData, decodeAbiParameters } from 'viem'
 import { EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS } from '@/lib/constants'
 import { decodeEarthquake } from '@/lib/earthquake-encoding'
-import { getClientSDK } from '@/lib/client-sdk'
+import { getClientSDK, getClientFetchSDK } from '@/lib/client-sdk'
 import type { Earthquake } from '@/types/earthquake'
 
 interface UseEarthquakesProps {
@@ -35,11 +35,12 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
   
   /**
    * Fetch all historical earthquakes from the blockchain
+   * Uses HTTP transport to avoid WebSocket connection issues
    */
   const fetchInitialQuakes = useCallback(async () => {
     console.log('📥 Fetching initial earthquakes from blockchain...')
     
-    const sdk = getClientSDK()
+    const sdk = getClientFetchSDK() // Use HTTP for fetching, not WebSocket
     
     try {
       // Get total count of earthquakes published by our oracle
