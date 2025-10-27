@@ -77,19 +77,19 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
             quake = decodeEarthquake(data[0] as `0x${string}`)
           } else {
             // It's already decoded SchemaDecodedItem[]
-            // v0.8.0 SDK returns: data[0] = array of {name, type, value}
-            const decoded = data[0] as Array<{ value: any }>
+            // v0.8.0 SDK returns: data[0] = array of {name, type, signature, value: {name, type, value}}
+            const decoded = data[0] as Array<{ value: { value: any } }>
             
-            // Direct value access (NOT nested)
+            // Nested value access: decoded[i].value.value
             quake = {
-              earthquakeId: String(decoded[0]?.value || ''),
-              location: String(decoded[1]?.value || ''),
-              magnitude: Number(decoded[2]?.value || 0) / 10,
-              depth: Number(decoded[3]?.value || 0) / 1000,
-              latitude: Number(decoded[4]?.value || 0) / 1000000,
-              longitude: Number(decoded[5]?.value || 0) / 1000000,
-              timestamp: Number(decoded[6]?.value || 0),
-              url: String(decoded[7]?.value || '')
+              earthquakeId: String(decoded[0]?.value?.value || ''),
+              location: String(decoded[1]?.value?.value || ''),
+              magnitude: Number(decoded[2]?.value?.value || 0) / 10,
+              depth: Number(decoded[3]?.value?.value || 0) / 1000,
+              latitude: Number(decoded[4]?.value?.value || 0) / 1000000,
+              longitude: Number(decoded[5]?.value?.value || 0) / 1000000,
+              timestamp: Number(decoded[6]?.value?.value || 0),
+              url: String(decoded[7]?.value?.value || '')
             }
           }
           

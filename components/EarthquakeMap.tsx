@@ -64,8 +64,9 @@ function PulsingMarker({ earthquake }: { earthquake: Earthquake }) {
     }
   }, [earthquake.earthquakeId])
   
-  const lat = earthquake.latitude / 1_000_000
-  const lng = earthquake.longitude / 1_000_000
+  // Coordinates are already decoded (divided by 1_000_000) in the hook
+  const lat = earthquake.latitude
+  const lng = earthquake.longitude
   const color = getMagnitudeColor(earthquake.magnitude)
   const radius = Math.max(5, earthquake.magnitude * 3) // Visual radius in pixels
   
@@ -129,16 +130,6 @@ export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: Ear
     q.timestamp >= timeRangeStart && 
     q.timestamp <= timeRangeEnd
   )
-  
-  // Debug logging
-  console.log('🗺️ EarthquakeMap render:', {
-    totalEarthquakes: earthquakes.length,
-    visibleQuakes: visibleQuakes.length,
-    timeRange: {
-      start: new Date(timeRangeStart).toISOString(),
-      end: new Date(timeRangeEnd).toISOString()
-    }
-  })
   
   // Track if map is ready
   const [mapReady, setMapReady] = useState(false)

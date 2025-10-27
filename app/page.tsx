@@ -76,6 +76,8 @@ export default function Home() {
           id: q.earthquakeId.slice(0, 10),
           mag: q.magnitude.toFixed(1),
           location: q.location.slice(0, 30),
+          lat: q.latitude.toFixed(4),
+          lon: q.longitude.toFixed(4),
           timestamp: q.timestamp,
           hoursAgo: ((now - q.timestamp) / (1000 * 60 * 60)).toFixed(1)
         }))
