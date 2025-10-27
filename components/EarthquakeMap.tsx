@@ -151,7 +151,7 @@ export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: Ear
   return (
     <div className="glass-strong rounded-xl overflow-hidden h-full">
       <MapContainer
-        center={[20, 0]} // Start centered on equator
+        center={[0, 0]} // Center on equator and prime meridian for full world view
         zoom={2}
         style={{ height: '100%', width: '100%' }}
         whenReady={() => setMapReady(true)}
