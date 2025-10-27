@@ -39,7 +39,7 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
     const sdk = new SDK({
       public: createPublicClient({
         chain: somniaTestnet,
-        transport: webSocket() // Uses chain's default WebSocket URL
+        transport: webSocket('ws://api.infra.testnet.somnia.network/ws')
       })
     })
     
@@ -126,7 +126,7 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
     const sdk = new SDK({
       public: createPublicClient({
         chain: somniaTestnet,
-        transport: webSocket() // Uses chain's default WebSocket URL
+        transport: webSocket('ws://api.infra.testnet.somnia.network/ws')
       })
     })
     
