@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { toHex } from 'viem'
-import { getSDK } from '@/lib/sdk'
+import { getSDK, getPublicClient } from '@/lib/sdk'
 import { EARTHQUAKE_SCHEMA_ID } from '@/lib/constants'
 import { encodeEarthquake, transformUSGSToSchema } from '@/lib/earthquake-encoding'
 import type { USGSResponse, Earthquake } from '@/types/earthquake'
@@ -139,12 +139,42 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Step 4: Publish to blockchain using batch (original approach)
-    // The issue was NOT batch vs individual - it's a Data Streams limitation
-    // where only the LATEST value for each unique ID is stored (key-value store)
-    console.log('📤 Publishing to Somnia blockchain...')
-    const txHash = await sdk.streams.setAndEmitEvents(dataStreams, eventStreams)
-    console.log('✅ Published! TX:', txHash)
+    // Step 4: Publish to blockchain ONE AT A TIME
+    // Data Streams KV store pattern: Each unique ID should be written separately
+    // Batch writes seem to only persist the last item, so we write individually
+    console.log('📤 Publishing earthquakes to blockchain ONE AT A TIME...')
+    
+    const publicClient = getPublicClient()
+    const txHashes: string[] = []
+    
+    for (let i = 0; i < dataStreams.length; i++) {
+      try {
+        console.log(`   📝 Publishing ${i + 1}/${dataStreams.length}...`)
+        
+        const txHash = await sdk.streams.setAndEmitEvents(
+          [dataStreams[i]],  // Single earthquake
+          [eventStreams[i]]   // Single event
+        )
+        
+        console.log(`   ⏳ Waiting for confirmation: ${txHash}`)
+        
+        // CRITICAL: Wait for transaction to be mined before sending next one
+        // This prevents nonce conflicts and ensures all earthquakes are stored
+        await publicClient.waitForTransactionReceipt({
+          hash: txHash as `0x${string}`,
+          timeout: 30_000 // 30 second timeout
+        })
+        
+        txHashes.push(txHash as string)
+        console.log(`   ✅ Confirmed ${i + 1}/${dataStreams.length}`)
+        
+      } catch (error) {
+        console.error(`   ❌ Failed to publish earthquake ${i + 1}:`, error)
+        // Continue with next earthquake even if one fails
+      }
+    }
+    
+    console.log(`✅ Successfully published ${txHashes.length}/${dataStreams.length} earthquakes!`)
     
     // Update tracking (remember the most recent earthquake)
     const mostRecent = newQuakes[newQuakes.length - 1]
@@ -157,6 +187,7 @@ export async function GET(request: NextRequest) {
     return Response.json({
       success: true,
       newQuakes: newQuakes.length,
+      published: txHashes.length,
       totalFetched: data.features.length,
       minMagnitude: MIN_MAGNITUDE,
       txHashes,
