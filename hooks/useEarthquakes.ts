@@ -162,17 +162,23 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
             ) as [readonly `0x${string}`[]]
             
             if (bytesArray && bytesArray.length > 0) {
+              console.log(`📦 Received ${bytesArray.length} earthquakes from ethCall`)
+              
               // Decode all earthquakes
               const earthquakes: Earthquake[] = []
               
               for (const encodedData of bytesArray) {
                 try {
+                  // Log the data format to help debug
+                  console.log('🔍 Decoding data type:', typeof encodedData, 'length:', encodedData.length)
+                  
                   const quake = decodeEarthquake(encodedData)
                   if (quake.magnitude >= minMagnitude) {
                     earthquakes.push(quake)
                   }
                 } catch (error) {
-                  console.warn('Failed to decode earthquake from ethCall:', error)
+                  console.error('❌ Failed to decode earthquake from ethCall:', error)
+                  console.error('   Data:', encodedData?.slice(0, 100) + '...') // Show first 100 chars
                 }
               }
               
@@ -183,6 +189,8 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
                 // The most recent earthquake is the new one!
                 console.log(`✨ Zero-latency update: M${earthquakes[0].magnitude.toFixed(1)} - ${earthquakes[0].location}`)
                 onNewEarthquakeRef.current(earthquakes[0])
+              } else {
+                console.warn('⚠️  No earthquakes decoded from ethCall result')
               }
             }
           }
