@@ -230,12 +230,16 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
                     const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
                     const newQuakes = earthquakes.filter(q => !existingIds.has(q.earthquakeId))
                     
+                    console.log(`📊 Event analysis: ${earthquakes.length} total, ${currentEarthquakes.length} existing, ${newQuakes.length} new`)
+                    
                     if (newQuakes.length > 0) {
                       currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
                       onEarthquakesUpdateRef.current(currentEarthquakes)
                       console.log(`🔔 New: M${newQuakes[0].magnitude.toFixed(1)} - ${newQuakes[0].location}`)
                       onNewEarthquakeRef.current(newQuakes[0])
                       previousCountRef.current = currentEarthquakes.length
+                    } else {
+                      console.log(`ℹ️  All ${earthquakes.length} earthquakes from event already in list (duplicates)`)
                     }
                   }
                 }
