@@ -36,7 +36,11 @@ export function Timeline({
     ? Math.min(...earthquakes.map(q => q.timestamp))
     : currentTime - 7 * 24 * 60 * 60 * 1000 // 7 days ago
   
-  const maxTime = currentTime
+  // maxTime should be either currentTime OR the newest earthquake (whichever is later)
+  // This allows the slider to extend to show all earthquakes
+  const maxTime = earthquakes.length > 0
+    ? Math.max(currentTime, Math.max(...earthquakes.map(q => q.timestamp)))
+    : currentTime
   
   // Auto-play effect
   useEffect(() => {
@@ -65,8 +69,13 @@ export function Timeline({
       const minTime = earthquakes.length > 0 
         ? Math.min(...earthquakes.map(q => q.timestamp))
         : currentTime - 7 * 24 * 60 * 60 * 1000
-      onTimeRangeChange(minTime, currentTime)
+      // In "All Time" mode, show from oldest to newest earthquake
+      const maxTime = earthquakes.length > 0
+        ? Math.max(currentTime, Math.max(...earthquakes.map(q => q.timestamp)))
+        : currentTime
+      onTimeRangeChange(minTime, maxTime)
     } else {
+      // In windowed mode, show a sliding window
       onTimeRangeChange(currentTime - timeWindow, currentTime)
     }
   }, [currentTime, timeWindow, onTimeRangeChange, earthquakes])
