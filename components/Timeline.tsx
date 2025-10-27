@@ -31,45 +31,29 @@ export function Timeline({
     setIsMounted(true)
   }, [])
   
-  // Calculate time range based on the time window selection
-  // The slider should always allow scrubbing through the selected time window
+  // SIMPLE: Slider represents the END time of the viewing window
+  // - Slider max is ALWAYS "now"
+  // - Slider min is a reasonable history (e.g., 7 days back)
+  // - The timeWindow (1h, 24h, 7d) determines the SIZE of the window
+  // - Visible earthquakes are from (currentTime - timeWindow) to currentTime
   
-  let minTime: number
-  let maxTime: number
+  const now = Date.now()
+  const minTime = earthquakes.length > 0 
+    ? Math.min(...earthquakes.map(q => q.timestamp))
+    : now - 7 * 24 * 60 * 60 * 1000 // Allow scrubbing back 7 days
   
-  if (timeWindow === Infinity) {
-    // "All Time" mode: show from oldest earthquake to now
-    minTime = earthquakes.length > 0 
-      ? Math.min(...earthquakes.map(q => q.timestamp))
-      : currentTime - 7 * 24 * 60 * 60 * 1000
-    maxTime = currentTime
-  } else {
-    // Windowed mode: allow scrubbing through the selected time period
-    // Example: "Last 7 Days" means you can scrub from (now - 7 days) to now
-    const oldestDataPoint = earthquakes.length > 0 
-      ? Math.min(...earthquakes.map(q => q.timestamp))
-      : currentTime - timeWindow
-    
-    // Slider min is either:
-    // - The selected time window back from now, OR
-    // - The oldest earthquake (if older than the window)
-    minTime = Math.min(currentTime - timeWindow, oldestDataPoint)
-    
-    // Slider max is now (or slightly in the future to show latest earthquakes)
-    maxTime = currentTime
-  }
+  const maxTime = now // RIGHT side is ALWAYS now
   
-  // Auto-play effect
+  // Auto-play effect: moves forward toward "now"
   useEffect(() => {
     if (!isPlaying || !isMounted) return
     
-    const nowTime = Date.now()
-    
     const interval = setInterval(() => {
       setCurrentTime(prev => {
+        const nowTime = Date.now()
         const next = prev + (1000 * playbackSpeed) // Move forward by speed
-        if (next > nowTime) {
-          onPlayPauseToggle() // Stop at end
+        if (next >= nowTime) {
+          onPlayPauseToggle() // Stop when we reach "now"
           return nowTime
         }
         return next
@@ -80,36 +64,25 @@ export function Timeline({
   }, [isPlaying, playbackSpeed, onPlayPauseToggle, isMounted])
   
   // Notify parent of time range changes
+  // The viewing window ENDS at currentTime and has SIZE of timeWindow
   useEffect(() => {
     let rangeStart: number
     let rangeEnd: number
     
+    rangeEnd = currentTime // End of window is the current slider position
+    
     if (timeWindow === Infinity) {
-      // "All Time" mode: show all earthquakes from oldest to currentTime
+      // "All Time" mode: show from oldest earthquake to currentTime
       rangeStart = earthquakes.length > 0 
         ? Math.min(...earthquakes.map(q => q.timestamp))
         : currentTime - 7 * 24 * 60 * 60 * 1000
-      rangeEnd = currentTime
     } else {
-      // Windowed mode: show a sliding window of size timeWindow ending at currentTime
+      // Window starts timeWindow before the end
       rangeStart = currentTime - timeWindow
-      rangeEnd = currentTime
     }
     
     onTimeRangeChange(rangeStart, rangeEnd)
-    
-    // Debug logging
-    console.log('⏰ Timeline range changed:', {
-      mode: timeWindow === Infinity ? 'All Time' : `${(timeWindow / (1000 * 60 * 60)).toFixed(0)}h window`,
-      rangeStart: new Date(rangeStart).toISOString(),
-      rangeEnd: new Date(rangeEnd).toISOString(),
-      currentTime: new Date(currentTime).toISOString(),
-      sliderRange: {
-        min: new Date(minTime).toISOString(),
-        max: new Date(maxTime).toISOString()
-      }
-    })
-  }, [currentTime, timeWindow, onTimeRangeChange, earthquakes, minTime, maxTime])
+  }, [currentTime, timeWindow, onTimeRangeChange, earthquakes])
   
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value)
@@ -121,7 +94,7 @@ export function Timeline({
   }
   
   const handleReset = () => {
-    setCurrentTime(Date.now())
+    setCurrentTime(Date.now()) // Reset to "now"
   }
   
   // Format time for display
