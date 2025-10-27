@@ -21,6 +21,8 @@ export const somniaTestnet = defineChain({
   },
   blockExplorers: {
     default: { name: 'Explorer', url: 'https://somnia.network' }
-  }
+  },
+  // Force legacy transactions (not EIP-1559)
+  fees: undefined
 })
 
