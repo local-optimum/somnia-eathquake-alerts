@@ -53,16 +53,20 @@ export function Timeline({
       setCurrentTime(prev => {
         const nowTime = Date.now()
         const next = prev + (1000 * playbackSpeed) // Move forward by speed
-        if (next >= nowTime) {
-          onPlayPauseToggle() // Stop when we reach "now"
-          return nowTime
-        }
-        return next
+        // Return nowTime if we've reached it, updater will handle stopping playback
+        return next >= nowTime ? nowTime : next
       })
     }, 50) // Update every 50ms for smooth animation
     
     return () => clearInterval(interval)
-  }, [isPlaying, playbackSpeed, onPlayPauseToggle, isMounted])
+  }, [isPlaying, playbackSpeed, isMounted])
+  
+  // Stop playback when we reach "now"
+  useEffect(() => {
+    if (isPlaying && isMounted && currentTime >= Date.now()) {
+      onPlayPauseToggle()
+    }
+  }, [currentTime, isPlaying, isMounted, onPlayPauseToggle])
   
   // Notify parent of time range changes
   // The viewing window ENDS at currentTime and has SIZE of timeWindow

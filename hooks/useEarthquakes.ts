@@ -78,7 +78,7 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
           } else {
             // It's already decoded SchemaDecodedItem[]
             // v0.8.0 SDK returns: data[0] = array of {name, type, signature, value: {name, type, value}}
-            const decoded = data[0] as Array<{ value: { value: any } }>
+            const decoded = data[0] as Array<{ value: { value: unknown } }>
             
             // Nested value access: decoded[i].value.value
             quake = {
