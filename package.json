@@ -16,7 +16,9 @@
     "check-data": "tsx scripts/check-onchain-data.ts",
     "dev-sync": "tsx scripts/dev-sync.ts",
     "dev-sync:force": "tsx scripts/dev-sync.ts --force",
-    "dev-sync:watch": "tsx scripts/dev-sync.ts --watch"
+    "dev-sync:watch": "tsx scripts/dev-sync.ts --watch",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "dependencies": {
     "@somnia-chain/streams": "^0.8.0",
