@@ -22,13 +22,25 @@ export function Timeline({
 }: TimelineProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const [timeWindow, setTimeWindow] = useState(24 * 60 * 60 * 1000) // 24 hours in ms
+  const [timeWindow, setTimeWindow] = useState(Infinity) // Show all time by default
   
   // Initialize time on mount to avoid hydration mismatch
   useEffect(() => {
     setCurrentTime(Date.now())
     setIsMounted(true)
   }, [])
+  
+  // Auto-adjust currentTime when earthquakes load to show them
+  useEffect(() => {
+    if (!isMounted || earthquakes.length === 0) return
+    
+    // If we're showing "all time" and earthquakes just loaded, 
+    // set currentTime to the newest earthquake time + 1 hour buffer
+    if (timeWindow === Infinity && currentTime === Date.now()) {
+      const newestQuakeTime = Math.max(...earthquakes.map(q => q.timestamp))
+      setCurrentTime(newestQuakeTime + (60 * 60 * 1000)) // Add 1 hour buffer
+    }
+  }, [earthquakes, isMounted, currentTime, timeWindow])
   
   // Calculate time range (use currentTime instead of Date.now() for consistency)
   const minTime = earthquakes.length > 0 
@@ -59,8 +71,16 @@ export function Timeline({
   
   // Notify parent of time range changes
   useEffect(() => {
-    onTimeRangeChange(currentTime - timeWindow, currentTime)
-  }, [currentTime, timeWindow, onTimeRangeChange])
+    if (timeWindow === Infinity) {
+      // Show all earthquakes
+      const minTime = earthquakes.length > 0 
+        ? Math.min(...earthquakes.map(q => q.timestamp))
+        : currentTime - 7 * 24 * 60 * 60 * 1000
+      onTimeRangeChange(minTime, currentTime)
+    } else {
+      onTimeRangeChange(currentTime - timeWindow, currentTime)
+    }
+  }, [currentTime, timeWindow, onTimeRangeChange, earthquakes])
   
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value)
@@ -90,10 +110,16 @@ export function Timeline({
   const percentage = ((currentTime - minTime) / (maxTime - minTime)) * 100
   
   // Count earthquakes in current view
-  const visibleQuakes = earthquakes.filter(q => 
-    q.timestamp >= (currentTime - timeWindow) && 
-    q.timestamp <= currentTime
-  ).length
+  const visibleQuakes = earthquakes.filter(q => {
+    if (timeWindow === Infinity) {
+      // Show all earthquakes up to currentTime
+      const minTime = earthquakes.length > 0 
+        ? Math.min(...earthquakes.map(q => q.timestamp))
+        : currentTime - 7 * 24 * 60 * 60 * 1000
+      return q.timestamp >= minTime && q.timestamp <= currentTime
+    }
+    return q.timestamp >= (currentTime - timeWindow) && q.timestamp <= currentTime
+  }).length
   
   // Don't render until mounted to avoid hydration mismatch
   if (!isMounted) {
@@ -115,6 +141,7 @@ export function Timeline({
           onChange={handleWindowChange}
           className="bg-gray-800 rounded px-3 py-1 text-sm border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500"
         >
+          <option value={Infinity}>All Time</option>
           <option value={60 * 60 * 1000}>Last Hour</option>
           <option value={6 * 60 * 60 * 1000}>Last 6 Hours</option>
           <option value={24 * 60 * 60 * 1000}>Last 24 Hours</option>
