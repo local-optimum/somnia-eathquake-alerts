@@ -255,7 +255,7 @@ export default function Home() {
         </div>
         
         {/* Sidebar */}
-        <div className="space-y-6 h-full overflow-y-auto">
+        <div className="flex flex-col gap-6 h-full overflow-hidden">
           {/* Timeline controls */}
           <Timeline
             earthquakes={earthquakes}
@@ -267,15 +267,15 @@ export default function Home() {
             jumpToTime={jumpToTime}
           />
           
-          {/* Recent earthquakes list */}
-          <div className="glass-strong rounded-xl p-4">
-            <h3 className="font-bold text-lg mb-3">
+          {/* Recent earthquakes list - fills remaining space */}
+          <div className="glass-strong rounded-xl p-4 flex flex-col flex-1 min-h-0">
+            <h3 className="font-bold text-lg mb-3 flex-shrink-0">
               Recent Activity (Last 24h)
               <span className="ml-2 text-sm text-gray-400 font-normal">
                 ({recentActivityQuakes.length})
               </span>
             </h3>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            <div className="space-y-2 overflow-y-auto flex-1">
               {recentActivityQuakes.map(quake => (
                 <button
                   key={quake.earthquakeId}

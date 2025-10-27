@@ -195,7 +195,7 @@ export function Timeline({
         {/* Play/Pause */}
         <button
           onClick={onPlayPauseToggle}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center gap-2 min-w-[100px] justify-center"
         >
           {isPlaying ? (
             <>⏸️ Pause</>
