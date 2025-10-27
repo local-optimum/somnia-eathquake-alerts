@@ -31,16 +31,33 @@ export function Timeline({
     setIsMounted(true)
   }, [])
   
-  // Calculate time range (use currentTime instead of Date.now() for consistency)
-  const minTime = earthquakes.length > 0 
-    ? Math.min(...earthquakes.map(q => q.timestamp))
-    : currentTime - 7 * 24 * 60 * 60 * 1000 // 7 days ago
+  // Calculate time range based on the time window selection
+  // The slider should always allow scrubbing through the selected time window
   
-  // maxTime should be either currentTime OR the newest earthquake (whichever is later)
-  // This allows the slider to extend to show all earthquakes
-  const maxTime = earthquakes.length > 0
-    ? Math.max(currentTime, Math.max(...earthquakes.map(q => q.timestamp)))
-    : currentTime
+  let minTime: number
+  let maxTime: number
+  
+  if (timeWindow === Infinity) {
+    // "All Time" mode: show from oldest earthquake to now
+    minTime = earthquakes.length > 0 
+      ? Math.min(...earthquakes.map(q => q.timestamp))
+      : currentTime - 7 * 24 * 60 * 60 * 1000
+    maxTime = currentTime
+  } else {
+    // Windowed mode: allow scrubbing through the selected time period
+    // Example: "Last 7 Days" means you can scrub from (now - 7 days) to now
+    const oldestDataPoint = earthquakes.length > 0 
+      ? Math.min(...earthquakes.map(q => q.timestamp))
+      : currentTime - timeWindow
+    
+    // Slider min is either:
+    // - The selected time window back from now, OR
+    // - The oldest earthquake (if older than the window)
+    minTime = Math.min(currentTime - timeWindow, oldestDataPoint)
+    
+    // Slider max is now (or slightly in the future to show latest earthquakes)
+    maxTime = currentTime
+  }
   
   // Auto-play effect
   useEffect(() => {
@@ -64,21 +81,35 @@ export function Timeline({
   
   // Notify parent of time range changes
   useEffect(() => {
+    let rangeStart: number
+    let rangeEnd: number
+    
     if (timeWindow === Infinity) {
-      // Show all earthquakes
-      const minTime = earthquakes.length > 0 
+      // "All Time" mode: show all earthquakes from oldest to currentTime
+      rangeStart = earthquakes.length > 0 
         ? Math.min(...earthquakes.map(q => q.timestamp))
         : currentTime - 7 * 24 * 60 * 60 * 1000
-      // In "All Time" mode, show from oldest to newest earthquake
-      const maxTime = earthquakes.length > 0
-        ? Math.max(currentTime, Math.max(...earthquakes.map(q => q.timestamp)))
-        : currentTime
-      onTimeRangeChange(minTime, maxTime)
+      rangeEnd = currentTime
     } else {
-      // In windowed mode, show a sliding window
-      onTimeRangeChange(currentTime - timeWindow, currentTime)
+      // Windowed mode: show a sliding window of size timeWindow ending at currentTime
+      rangeStart = currentTime - timeWindow
+      rangeEnd = currentTime
     }
-  }, [currentTime, timeWindow, onTimeRangeChange, earthquakes])
+    
+    onTimeRangeChange(rangeStart, rangeEnd)
+    
+    // Debug logging
+    console.log('⏰ Timeline range changed:', {
+      mode: timeWindow === Infinity ? 'All Time' : `${(timeWindow / (1000 * 60 * 60)).toFixed(0)}h window`,
+      rangeStart: new Date(rangeStart).toISOString(),
+      rangeEnd: new Date(rangeEnd).toISOString(),
+      currentTime: new Date(currentTime).toISOString(),
+      sliderRange: {
+        min: new Date(minTime).toISOString(),
+        max: new Date(maxTime).toISOString()
+      }
+    })
+  }, [currentTime, timeWindow, onTimeRangeChange, earthquakes, minTime, maxTime])
   
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value)
@@ -110,13 +141,15 @@ export function Timeline({
   // Count earthquakes in current view
   const visibleQuakes = earthquakes.filter(q => {
     if (timeWindow === Infinity) {
-      // Show all earthquakes up to currentTime
-      const minTime = earthquakes.length > 0 
+      // "All Time": show all earthquakes up to currentTime
+      const minTimeRange = earthquakes.length > 0 
         ? Math.min(...earthquakes.map(q => q.timestamp))
         : currentTime - 7 * 24 * 60 * 60 * 1000
-      return q.timestamp >= minTime && q.timestamp <= currentTime
+      return q.timestamp >= minTimeRange && q.timestamp <= currentTime
+    } else {
+      // Windowed mode: show earthquakes within the sliding window
+      return q.timestamp >= (currentTime - timeWindow) && q.timestamp <= currentTime
     }
-    return q.timestamp >= (currentTime - timeWindow) && q.timestamp <= currentTime
   }).length
   
   // Don't render until mounted to avoid hydration mismatch
