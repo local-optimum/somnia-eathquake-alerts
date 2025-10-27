@@ -128,6 +128,7 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     let lastFetchTime = Date.now()
     let reconnectTimeout: NodeJS.Timeout | null = null
     let isReconnecting = false
+    let isInitialized = false
     
     // Helper to refetch all earthquakes and merge with current list
     const refetchAndMerge = async () => {
@@ -148,12 +149,6 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
       
       lastFetchTime = Date.now()
     }
-    
-    // Initialize with current earthquakes from initial fetch
-    fetchInitialQuakes().then(quakes => {
-      currentEarthquakes = quakes
-      console.log(`📋 Initialized WebSocket with ${currentEarthquakes.length} earthquakes from initial fetch`)
-    })
     
     // Setup subscription function (called initially and on reconnect)
     const setupSubscription = async () => {
@@ -291,8 +286,19 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     
-    // Start initial subscription
-    setupSubscription()
+    // Initialize: Fetch all earthquakes FIRST, then set up WebSocket subscription
+    // This prevents race condition where WebSocket events arrive before initial fetch completes
+    fetchInitialQuakes().then(quakes => {
+      currentEarthquakes = quakes
+      isInitialized = true
+      console.log(`📋 Initialized with ${currentEarthquakes.length} earthquakes, now setting up WebSocket...`)
+      
+      // NOW start WebSocket subscription
+      setupSubscription()
+    }).catch(error => {
+      console.error('❌ Failed initial fetch, setting up subscription anyway:', error)
+      setupSubscription()
+    })
     
     // Cleanup on unmount
     return () => {
