@@ -33,6 +33,8 @@ export default function Home() {
     console.log('   Sample earthquakes:', quakes.slice(0, 3).map(q => ({
       mag: q.magnitude.toFixed(1),
       location: q.location.slice(0, 30),
+      lat: q.latitude,
+      lon: q.longitude,
       time: new Date(q.timestamp).toISOString()
     })))
     

@@ -74,6 +74,14 @@ export function decodeEarthquake(data: `0x${string}`): Earthquake {
       data
     )
     
+    console.log('🔍 Decoded values:', {
+      earthquakeId,
+      location,
+      magnitude: `${magnitude} → ${Number(magnitude) / 10}`,
+      latitude: `${latitude} → ${Number(latitude) / 1000000}`,
+      longitude: `${longitude} → ${Number(longitude) / 1000000}`
+    })
+    
     return {
       earthquakeId: earthquakeId as string,
       location: location as string,
