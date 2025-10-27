@@ -20,33 +20,42 @@ export function Timeline({
   playbackSpeed,
   onSpeedChange
 }: TimelineProps) {
-  const [currentTime, setCurrentTime] = useState(Date.now())
+  const [isMounted, setIsMounted] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
   const [timeWindow, setTimeWindow] = useState(24 * 60 * 60 * 1000) // 24 hours in ms
   
-  // Calculate time range
+  // Initialize time on mount to avoid hydration mismatch
+  useEffect(() => {
+    setCurrentTime(Date.now())
+    setIsMounted(true)
+  }, [])
+  
+  // Calculate time range (use currentTime instead of Date.now() for consistency)
   const minTime = earthquakes.length > 0 
     ? Math.min(...earthquakes.map(q => q.timestamp))
-    : Date.now() - 7 * 24 * 60 * 60 * 1000 // 7 days ago
+    : currentTime - 7 * 24 * 60 * 60 * 1000 // 7 days ago
   
-  const maxTime = Date.now()
+  const maxTime = currentTime
   
   // Auto-play effect
   useEffect(() => {
-    if (!isPlaying) return
+    if (!isPlaying || !isMounted) return
+    
+    const nowTime = Date.now()
     
     const interval = setInterval(() => {
       setCurrentTime(prev => {
         const next = prev + (1000 * playbackSpeed) // Move forward by speed
-        if (next > maxTime) {
+        if (next > nowTime) {
           onPlayPauseToggle() // Stop at end
-          return maxTime
+          return nowTime
         }
         return next
       })
     }, 50) // Update every 50ms for smooth animation
     
     return () => clearInterval(interval)
-  }, [isPlaying, playbackSpeed, maxTime, onPlayPauseToggle])
+  }, [isPlaying, playbackSpeed, onPlayPauseToggle, isMounted])
   
   // Notify parent of time range changes
   useEffect(() => {
@@ -63,7 +72,7 @@ export function Timeline({
   }
   
   const handleReset = () => {
-    setCurrentTime(maxTime)
+    setCurrentTime(Date.now())
   }
   
   // Format time for display
@@ -85,6 +94,15 @@ export function Timeline({
     q.timestamp >= (currentTime - timeWindow) && 
     q.timestamp <= currentTime
   ).length
+  
+  // Don't render until mounted to avoid hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className="glass-strong rounded-xl p-4 h-[200px] flex items-center justify-center">
+        <div className="text-gray-400">Loading timeline...</div>
+      </div>
+    )
+  }
   
   return (
     <div className="glass-strong rounded-xl p-4">
