@@ -1,7 +1,7 @@
 import { SDK } from '@somnia-chain/streams'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { somniaTestnet } from '@/lib/chains'
+import { somniaTestnet } from 'viem/chains'
 
 /**
  * Server-side SDK utilities for Somnia Data Streams
