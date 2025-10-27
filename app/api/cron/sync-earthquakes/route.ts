@@ -139,32 +139,12 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Step 4: Publish to blockchain
-    // NOTE: Publishing one at a time AND waiting for confirmation to avoid nonce conflicts
+    // Step 4: Publish to blockchain using batch (original approach)
+    // The issue was NOT batch vs individual - it's a Data Streams limitation
+    // where only the LATEST value for each unique ID is stored (key-value store)
     console.log('📤 Publishing to Somnia blockchain...')
-    const txHashes: string[] = []
-    
-    const publicClient = sdk['public'] // Access the public client from SDK
-    
-    for (let i = 0; i < dataStreams.length; i++) {
-      try {
-        const txHash = await sdk.streams.setAndEmitEvents([dataStreams[i]], [eventStreams[i]])
-        console.log(`   ⏳ Waiting for confirmation ${i + 1}/${dataStreams.length}: ${txHash}`)
-        
-        // Wait for transaction to be mined
-        await publicClient.waitForTransactionReceipt({ 
-          hash: txHash as `0x${string}`,
-          timeout: 30_000 // 30 second timeout
-        })
-        
-        txHashes.push(txHash as string)
-        console.log(`   ✓ Confirmed earthquake ${i + 1}/${dataStreams.length}`)
-      } catch (error) {
-        console.error(`   ✗ Failed to publish earthquake ${i + 1}:`, error)
-      }
-    }
-    
-    console.log(`✅ Published and confirmed ${txHashes.length}/${dataStreams.length} earthquakes!`)
+    const txHash = await sdk.streams.setAndEmitEvents(dataStreams, eventStreams)
+    console.log('✅ Published! TX:', txHash)
     
     // Update tracking (remember the most recent earthquake)
     const mostRecent = newQuakes[newQuakes.length - 1]
