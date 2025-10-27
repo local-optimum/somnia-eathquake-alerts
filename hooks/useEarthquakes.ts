@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
-import { SDK } from '@somnia-chain/streams'
-import { createPublicClient, webSocket, encodeFunctionData, decodeAbiParameters } from 'viem'
-import { somniaTestnet } from 'viem/chains'
+import { encodeFunctionData, decodeAbiParameters } from 'viem'
 import { EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS } from '@/lib/constants'
 import { decodeEarthquake } from '@/lib/earthquake-encoding'
+import { getClientSDK } from '@/lib/client-sdk'
 import type { Earthquake } from '@/types/earthquake'
 
 interface UseEarthquakesProps {
@@ -36,12 +35,7 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
   const fetchInitialQuakes = useCallback(async () => {
     console.log('📥 Fetching initial earthquakes from blockchain...')
     
-    const sdk = new SDK({
-      public: createPublicClient({
-        chain: somniaTestnet,
-        transport: webSocket('ws://api.infra.testnet.somnia.network/ws')
-      })
-    })
+    const sdk = getClientSDK()
     
     try {
       // Get total count of earthquakes published by our oracle
@@ -123,12 +117,7 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
   useEffect(() => {
     console.log('🔔 Setting up earthquake WebSocket subscription with ethCalls...')
     
-    const sdk = new SDK({
-      public: createPublicClient({
-        chain: somniaTestnet,
-        transport: webSocket('ws://api.infra.testnet.somnia.network/ws')
-      })
-    })
+    const sdk = getClientSDK()
     
     let subscription: { unsubscribe: () => void } | undefined
     let isSubscribed = false
