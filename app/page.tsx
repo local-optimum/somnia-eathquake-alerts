@@ -22,6 +22,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [jumpToTime, setJumpToTime] = useState<number | null>(null)
   
   // Track when component is mounted (client-side only)
   useEffect(() => {
@@ -105,6 +106,18 @@ export default function Home() {
   // Handle play/pause toggle (memoized to prevent React render errors)
   const handlePlayPauseToggle = useCallback(() => {
     setIsPlaying(prev => !prev)
+  }, [])
+  
+  // Handle clicking on an earthquake in Recent Activity
+  const handleEarthquakeClick = useCallback((quake: Earthquake) => {
+    // Stop playback if playing
+    setIsPlaying(false)
+    // Jump timeline to this earthquake's time
+    setJumpToTime(quake.timestamp)
+    // Pan map to this earthquake
+    setNewEarthquakeForPan(quake)
+    // Reset jump after a brief delay
+    setTimeout(() => setJumpToTime(null), 100)
   }, [])
   
   // Request notification permission
@@ -243,16 +256,23 @@ export default function Home() {
             onPlayPauseToggle={handlePlayPauseToggle}
             playbackSpeed={playbackSpeed}
             onSpeedChange={setPlaybackSpeed}
+            jumpToTime={jumpToTime}
           />
           
           {/* Recent earthquakes list */}
           <div className="glass-strong rounded-xl p-4">
-            <h3 className="font-bold text-lg mb-3">Recent Activity</h3>
+            <h3 className="font-bold text-lg mb-3">
+              Recent Activity
+              <span className="ml-2 text-sm text-gray-400 font-normal">
+                ({visibleQuakes.length})
+              </span>
+            </h3>
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {visibleQuakes.slice(0, 10).map(quake => (
-                <div
+              {visibleQuakes.map(quake => (
+                <button
                   key={quake.earthquakeId}
-                  className="bg-gray-800/50 rounded-lg p-3 hover:bg-gray-800 transition-colors"
+                  onClick={() => handleEarthquakeClick(quake)}
+                  className="w-full bg-gray-800/50 rounded-lg p-3 hover:bg-gray-700 transition-colors text-left cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-1">
                     <span className="font-bold text-lg">
@@ -264,9 +284,9 @@ export default function Home() {
                   </div>
                   <p className="text-sm text-gray-300">{quake.location}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Depth: {quake.depth.toFixed(1)} km
+                    Depth: {quake.depth.toFixed(1)} km • Click to view
                   </p>
-                </div>
+                </button>
               ))}
               
               {visibleQuakes.length === 0 && (

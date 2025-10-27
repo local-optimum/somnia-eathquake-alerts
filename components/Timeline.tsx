@@ -10,6 +10,7 @@ interface TimelineProps {
   onPlayPauseToggle: () => void
   playbackSpeed: number
   onSpeedChange: (speed: number) => void
+  jumpToTime?: number | null
 }
 
 export function Timeline({
@@ -18,7 +19,8 @@ export function Timeline({
   isPlaying,
   onPlayPauseToggle,
   playbackSpeed,
-  onSpeedChange
+  onSpeedChange,
+  jumpToTime
 }: TimelineProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -30,6 +32,13 @@ export function Timeline({
     setCurrentTime(now)
     setIsMounted(true)
   }, [])
+  
+  // Handle external time jump requests (e.g., clicking on earthquake in list)
+  useEffect(() => {
+    if (jumpToTime !== null && jumpToTime !== undefined) {
+      setCurrentTime(jumpToTime)
+    }
+  }, [jumpToTime])
   
   // SIMPLE: Slider is PURELY time-based, earthquakes don't affect it
   // - Slider RIGHT = NOW
