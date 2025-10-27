@@ -149,7 +149,9 @@ export async function GET(request: NextRequest) {
     
     for (let i = 0; i < dataStreams.length; i++) {
       try {
-        console.log(`   📝 Publishing ${i + 1}/${dataStreams.length}...`)
+        const eq = newQuakes[i]
+        console.log(`   📝 Publishing ${i + 1}/${dataStreams.length}: ${eq.id} (M${eq.properties.mag})`)
+        console.log(`      Data ID: ${dataStreams[i].id}`)
         
         const txHash = await sdk.streams.setAndEmitEvents(
           [dataStreams[i]],  // Single earthquake
@@ -160,13 +162,13 @@ export async function GET(request: NextRequest) {
         
         // CRITICAL: Wait for transaction to be mined before sending next one
         // This prevents nonce conflicts and ensures all earthquakes are stored
-        await publicClient.waitForTransactionReceipt({
+        const receipt = await publicClient.waitForTransactionReceipt({
           hash: txHash as `0x${string}`,
           timeout: 30_000 // 30 second timeout
         })
         
         txHashes.push(txHash as string)
-        console.log(`   ✅ Confirmed ${i + 1}/${dataStreams.length}`)
+        console.log(`   ✅ Confirmed ${i + 1}/${dataStreams.length} - Status: ${receipt.status}`)
         
       } catch (error) {
         console.error(`   ❌ Failed to publish earthquake ${i + 1}:`, error)

@@ -1,4 +1,5 @@
-export const EARTHQUAKE_SCHEMA = `string earthquakeId, string location, uint16 magnitude, uint32 depth, int32 latitude, int32 longitude, uint64 timestamp, string url` as const
+// Single global earthquake state schema (stores ALL earthquakes as one object)
+export const EARTHQUAKE_SCHEMA = `bytes earthquakeData, uint64 lastUpdate` as const
 
 export const EARTHQUAKE_SCHEMA_ID = process.env.NEXT_PUBLIC_EARTHQUAKE_SCHEMA_ID as `0x${string}`
 export const PUBLISHER_ADDRESS = process.env.NEXT_PUBLIC_PUBLISHER_ADDRESS as `0x${string}`
