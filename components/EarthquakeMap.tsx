@@ -34,9 +34,9 @@ function AutoFitBounds({ earthquakes }: { earthquakes: Earthquake[] }) {
   useEffect(() => {
     if (earthquakes.length === 0 || hasFitBoundsRef.current) return
     
-    // Calculate bounds
-    const latitudes = earthquakes.map(q => q.latitude / 1_000_000)
-    const longitudes = earthquakes.map(q => q.longitude / 1_000_000)
+    // Calculate bounds (coordinates already decoded in hook)
+    const latitudes = earthquakes.map(q => q.latitude)
+    const longitudes = earthquakes.map(q => q.longitude)
     
     const southWest: [number, number] = [Math.min(...latitudes), Math.min(...longitudes)]
     const northEast: [number, number] = [Math.max(...latitudes), Math.max(...longitudes)]
@@ -49,8 +49,8 @@ function AutoFitBounds({ earthquakes }: { earthquakes: Earthquake[] }) {
   return null
 }
 
-// Pulsing marker component
-function PulsingMarker({ earthquake }: { earthquake: Earthquake }) {
+// Pulsing marker component with fade-out over 1 hour
+function PulsingMarker({ earthquake, currentTime }: { earthquake: Earthquake; currentTime: number }) {
   const [pulse, setPulse] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout>()
   
@@ -70,16 +70,27 @@ function PulsingMarker({ earthquake }: { earthquake: Earthquake }) {
   const color = getMagnitudeColor(earthquake.magnitude)
   const radius = Math.max(5, earthquake.magnitude * 3) // Visual radius in pixels
   
+  // Calculate age of earthquake relative to current viewing position
+  const ageMs = currentTime - earthquake.timestamp
+  const ageHours = ageMs / (1000 * 60 * 60)
+  
+  // Fade out over 1 hour: 1.0 at age 0, 0.0 at age 1 hour
+  const fadeOpacity = Math.max(0, Math.min(1, 1 - ageHours))
+  
+  // Apply fade to both fill and stroke
+  const baseFillOpacity = pulse ? 0.8 : 0.6
+  const baseStrokeOpacity = pulse ? 1 : 0.8
+  
   return (
     <CircleMarker
       center={[lat, lng]}
       radius={radius}
       pathOptions={{
         fillColor: color,
-        fillOpacity: pulse ? 0.8 : 0.6,
+        fillOpacity: baseFillOpacity * fadeOpacity,
         color: color,
         weight: pulse ? 3 : 1,
-        opacity: pulse ? 1 : 0.8
+        opacity: baseStrokeOpacity * fadeOpacity
       }}
       className={pulse ? 'animate-pulse' : ''}
     >
@@ -125,11 +136,14 @@ function PulsingMarker({ earthquake }: { earthquake: Earthquake }) {
 }
 
 export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: EarthquakeMapProps) {
-  // Filter earthquakes within time range
-  const visibleQuakes = earthquakes.filter(q => 
-    q.timestamp >= timeRangeStart && 
-    q.timestamp <= timeRangeEnd
-  )
+  // Filter earthquakes within time range AND less than 1 hour old from current viewing position
+  const ONE_HOUR_MS = 60 * 60 * 1000
+  const visibleQuakes = earthquakes.filter(q => {
+    const age = timeRangeEnd - q.timestamp
+    return q.timestamp >= timeRangeStart && 
+           q.timestamp <= timeRangeEnd &&
+           age <= ONE_HOUR_MS // Only show earthquakes less than 1 hour old
+  })
   
   // Track if map is ready
   const [mapReady, setMapReady] = useState(false)
@@ -153,9 +167,9 @@ export function EarthquakeMap({ earthquakes, timeRangeStart, timeRangeEnd }: Ear
           <AutoFitBounds earthquakes={visibleQuakes} />
         )}
         
-        {/* Render all visible earthquakes */}
+        {/* Render all visible earthquakes with fade-out effect */}
         {mapReady && visibleQuakes.map(quake => (
-          <PulsingMarker key={quake.earthquakeId} earthquake={quake} />
+          <PulsingMarker key={quake.earthquakeId} earthquake={quake} currentTime={timeRangeEnd} />
         ))}
       </MapContainer>
       
