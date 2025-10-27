@@ -26,12 +26,13 @@ function getMagnitudeRadius(magnitude: number): number {
   return Math.pow(2, magnitude) * 1000 // Exponential scale in meters
 }
 
-// Component to auto-fit bounds when earthquakes change
+// Component to auto-fit bounds ONCE on initial load
 function AutoFitBounds({ earthquakes }: { earthquakes: Earthquake[] }) {
   const map = useMap()
+  const hasFitBoundsRef = useRef(false)
   
   useEffect(() => {
-    if (earthquakes.length === 0) return
+    if (earthquakes.length === 0 || hasFitBoundsRef.current) return
     
     // Calculate bounds
     const latitudes = earthquakes.map(q => q.latitude / 1_000_000)
@@ -40,8 +41,9 @@ function AutoFitBounds({ earthquakes }: { earthquakes: Earthquake[] }) {
     const southWest: [number, number] = [Math.min(...latitudes), Math.min(...longitudes)]
     const northEast: [number, number] = [Math.max(...latitudes), Math.max(...longitudes)]
     
-    // Fit map to show all earthquakes
-    map.fitBounds([southWest, northEast], { padding: [50, 50] })
+    // Fit map to show all earthquakes (only once)
+    map.fitBounds([southWest, northEast], { padding: [50, 50], maxZoom: 4 })
+    hasFitBoundsRef.current = true
   }, [map, earthquakes])
   
   return null

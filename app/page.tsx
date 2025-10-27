@@ -27,19 +27,15 @@ export default function Home() {
     setIsMounted(true)
   }, [])
   
-  // Callback for new earthquakes (real-time)
+  // Callback for updating full earthquake list (from WebSocket ethCalls)
+  const handleEarthquakesUpdate = useCallback((quakes: Earthquake[]) => {
+    console.log(`📊 Earthquake list updated: ${quakes.length} total`)
+    setEarthquakes(quakes)
+  }, [])
+  
+  // Callback for new earthquakes (real-time notifications)
   const handleNewEarthquake = useCallback((quake: Earthquake) => {
     console.log('🆕 New earthquake detected:', quake)
-    
-    setEarthquakes(prev => {
-      // Avoid duplicates
-      if (prev.some(q => q.earthquakeId === quake.earthquakeId)) {
-        return prev
-      }
-      
-      // Add to start (newest first)
-      return [quake, ...prev]
-    })
     
     // Send browser notification for significant earthquakes
     if (notificationsEnabled && quake.magnitude >= 4.5) {
@@ -56,6 +52,7 @@ export default function Home() {
   // Subscribe to earthquakes
   const { fetchInitialQuakes } = useEarthquakes({
     onNewEarthquake: handleNewEarthquake,
+    onEarthquakesUpdate: handleEarthquakesUpdate,
     minMagnitude: 2.0
   })
   

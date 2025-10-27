@@ -9,6 +9,7 @@ import type { Earthquake } from '@/types/earthquake'
 
 interface UseEarthquakesProps {
   onNewEarthquake: (quake: Earthquake) => void
+  onEarthquakesUpdate: (quakes: Earthquake[]) => void
   minMagnitude?: number
 }
 
@@ -21,13 +22,16 @@ interface UseEarthquakesProps {
  * - Automatically filters by minimum magnitude
  * - Calls onNewEarthquake callback when new data arrives
  */
-export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarthquakesProps) {
+export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnitude = 2.0 }: UseEarthquakesProps) {
   const onNewEarthquakeRef = useRef(onNewEarthquake)
+  const onEarthquakesUpdateRef = useRef(onEarthquakesUpdate)
+  const previousCountRef = useRef(0)
   
-  // Keep callback ref up to date
+  // Keep callback refs up to date
   useEffect(() => {
     onNewEarthquakeRef.current = onNewEarthquake
-  }, [onNewEarthquake])
+    onEarthquakesUpdateRef.current = onEarthquakesUpdate
+  }, [onNewEarthquake, onEarthquakesUpdate])
   
   /**
    * Fetch all historical earthquakes from the blockchain
@@ -186,9 +190,15 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
               earthquakes.sort((a, b) => b.timestamp - a.timestamp)
               
               if (earthquakes.length > 0 && isSubscribed) {
-                // The most recent earthquake is the new one!
-                console.log(`✨ Zero-latency update: M${earthquakes[0].magnitude.toFixed(1)} - ${earthquakes[0].location}`)
-                onNewEarthquakeRef.current(earthquakes[0])
+                // Update the full list of earthquakes
+                onEarthquakesUpdateRef.current(earthquakes)
+                
+                // If there are more earthquakes than before, notify about the new one
+                if (earthquakes.length > previousCountRef.current) {
+                  console.log(`✨ Zero-latency update: M${earthquakes[0].magnitude.toFixed(1)} - ${earthquakes[0].location}`)
+                  onNewEarthquakeRef.current(earthquakes[0])
+                  previousCountRef.current = earthquakes.length
+                }
               } else {
                 console.warn('⚠️  No earthquakes decoded from ethCall result')
               }
@@ -200,7 +210,11 @@ export function useEarthquakes({ onNewEarthquake, minMagnitude = 2.0 }: UseEarth
           console.log('🔄 Falling back to manual fetch...')
           fetchInitialQuakes().then(quakes => {
             if (quakes.length > 0 && isSubscribed) {
-              onNewEarthquakeRef.current(quakes[0])
+              onEarthquakesUpdateRef.current(quakes)
+              if (quakes.length > previousCountRef.current) {
+                onNewEarthquakeRef.current(quakes[0])
+                previousCountRef.current = quakes.length
+              }
             }
           })
         }
