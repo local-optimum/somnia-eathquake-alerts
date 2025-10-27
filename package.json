@@ -13,6 +13,7 @@
     "lint": "eslint",
     "register-schema": "tsx scripts/register-earthquake-schema.ts",
     "dev-sync": "tsx scripts/dev-sync.ts",
+    "dev-sync:force": "tsx scripts/dev-sync.ts --force",
     "dev-sync:watch": "tsx scripts/dev-sync.ts --watch"
   },
   "dependencies": {

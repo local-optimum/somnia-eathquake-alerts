@@ -59,6 +59,22 @@ export default function Home() {
   // Load initial data
   useEffect(() => {
     fetchInitialQuakes().then(quakes => {
+      console.log('📊 Loaded earthquakes:', quakes.length)
+      if (quakes.length > 0) {
+        // Debug: Show timestamp info
+        const now = Date.now()
+        const timestamps = quakes.map(q => ({
+          id: q.earthquakeId.slice(0, 10),
+          mag: q.magnitude.toFixed(1),
+          location: q.location.slice(0, 30),
+          timestamp: q.timestamp,
+          hoursAgo: ((now - q.timestamp) / (1000 * 60 * 60)).toFixed(1)
+        }))
+        console.table(timestamps)
+        
+        const recentQuakes = quakes.filter(q => q.timestamp >= now - 24 * 60 * 60 * 1000)
+        console.log(`🕐 Earthquakes in last 24h: ${recentQuakes.length}`)
+      }
       setEarthquakes(quakes)
       setIsLoading(false)
     })

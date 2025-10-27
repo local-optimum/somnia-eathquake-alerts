@@ -5,8 +5,9 @@ import { EARTHQUAKE_SCHEMA_ID } from '@/lib/constants'
 import { encodeEarthquake, transformUSGSToSchema } from '@/lib/earthquake-encoding'
 import type { USGSResponse, Earthquake } from '@/types/earthquake'
 
-// USGS API endpoint - fetches earthquakes from the last hour
-const USGS_API = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
+// USGS API endpoint - fetches earthquakes from the last day for better coverage
+// Options: all_hour.geojson, all_day.geojson, all_week.geojson
+const USGS_API = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson'
 
 // Minimum magnitude threshold (2.0 for more data, 2.5 for less)
 // Adjust this to control data volume:
@@ -19,8 +20,8 @@ const MIN_MAGNITUDE = 2.0
 // Track last processed earthquake to avoid duplicates
 // In production, you'd want to use a database for this
 let lastProcessedId: string | null = null
-// Start 7 days in the past so we pick up existing earthquakes on first run
-let lastProcessedTime: number = Date.now() - (7 * 24 * 60 * 60 * 1000)
+// Start 1 hour in the past on first run to get recent earthquakes
+let lastProcessedTime: number = Date.now() - (60 * 60 * 1000)
 
 /**
  * Vercel Cron Job: Syncs earthquake data from USGS to Somnia blockchain
@@ -35,10 +36,21 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
   
+  // Allow forcing a full refresh (fetches last 24 hours)
+  const { searchParams } = new URL(request.url)
+  const forceRefresh = searchParams.get('force') === 'true'
+  
+  if (forceRefresh) {
+    console.log('🔄 FORCE REFRESH: Resetting to fetch last 24 hours')
+    lastProcessedTime = Date.now() - (24 * 60 * 60 * 1000)
+    lastProcessedId = null
+  }
+  
   const startTime = Date.now()
   console.log('🔄 Starting earthquake sync...')
   console.log('Time:', new Date().toISOString())
   console.log('Min magnitude:', MIN_MAGNITUDE)
+  console.log('Last processed:', new Date(lastProcessedTime).toISOString())
   
   try {
     const sdk = getSDK()

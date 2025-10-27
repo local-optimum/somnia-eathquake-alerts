@@ -7,6 +7,7 @@
  * Usage:
  *   npx tsx scripts/dev-sync.ts          # Run once
  *   npx tsx scripts/dev-sync.ts --watch  # Run every 30 seconds
+ *   npx tsx scripts/dev-sync.ts --force  # Force refresh (fetch last 24 hours)
  */
 
 import { config } from 'dotenv'
@@ -14,14 +15,17 @@ import { resolve } from 'path'
 
 config({ path: resolve(process.cwd(), '.env.local') })
 
+const FORCE_REFRESH = process.argv.includes('--force')
+
 async function syncEarthquakes() {
   console.log('\n' + '='.repeat(60))
-  console.log('🔄 Triggering earthquake sync...')
+  console.log(`🔄 Triggering earthquake sync${FORCE_REFRESH ? ' (FORCE REFRESH)' : ''}...`)
   console.log('='.repeat(60))
   
   try {
     // Call the local API route
-    const response = await fetch('http://localhost:3000/api/cron/sync-earthquakes', {
+    const url = `http://localhost:3000/api/cron/sync-earthquakes${FORCE_REFRESH ? '?force=true' : ''}`
+    const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${process.env.CRON_SECRET}`
       }

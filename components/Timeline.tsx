@@ -22,25 +22,14 @@ export function Timeline({
 }: TimelineProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const [timeWindow, setTimeWindow] = useState(Infinity) // Show all time by default
+  const [timeWindow, setTimeWindow] = useState(24 * 60 * 60 * 1000) // Default to 24 hours
   
   // Initialize time on mount to avoid hydration mismatch
   useEffect(() => {
-    setCurrentTime(Date.now())
+    const now = Date.now()
+    setCurrentTime(now)
     setIsMounted(true)
   }, [])
-  
-  // Auto-adjust currentTime when earthquakes load to show them
-  useEffect(() => {
-    if (!isMounted || earthquakes.length === 0) return
-    
-    // If we're showing "all time" and earthquakes just loaded, 
-    // set currentTime to the newest earthquake time + 1 hour buffer
-    if (timeWindow === Infinity && currentTime === Date.now()) {
-      const newestQuakeTime = Math.max(...earthquakes.map(q => q.timestamp))
-      setCurrentTime(newestQuakeTime + (60 * 60 * 1000)) // Add 1 hour buffer
-    }
-  }, [earthquakes, isMounted, currentTime, timeWindow])
   
   // Calculate time range (use currentTime instead of Date.now() for consistency)
   const minTime = earthquakes.length > 0 
