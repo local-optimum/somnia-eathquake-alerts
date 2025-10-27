@@ -117,16 +117,17 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
   /**
    * Subscribe to real-time earthquake events WITH ethCalls
    * This bundles the latest earthquake data with the event for zero-latency updates!
+   * Automatically reconnects if WebSocket closes.
    */
   useEffect(() => {
     console.log('🔔 Setting up earthquake WebSocket subscription with ethCalls...')
-    
-    const sdk = getClientSDK()
     
     let subscription: { unsubscribe: () => void } | undefined
     let isSubscribed = false
     let currentEarthquakes: Earthquake[] = []
     let lastFetchTime = Date.now()
+    let reconnectTimeout: NodeJS.Timeout | null = null
+    let isReconnecting = false
     
     // Helper to refetch all earthquakes and merge with current list
     const refetchAndMerge = async () => {
@@ -154,11 +155,129 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
       console.log(`📋 Initialized WebSocket with ${currentEarthquakes.length} earthquakes from initial fetch`)
     })
     
+    // Setup subscription function (called initially and on reconnect)
+    const setupSubscription = async () => {
+      if (isReconnecting) return
+      
+      isReconnecting = true
+      
+      // Clean up old subscription if exists
+      if (subscription) {
+        try {
+          subscription.unsubscribe()
+          isSubscribed = false
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+      }
+      
+      try {
+        const sdk = getClientSDK()
+        
+        // Subscribe to EarthquakeDetected events
+        const sub = await sdk.streams.subscribe({
+          somniaStreamsEventId: 'EarthquakeDetected',
+          // ethCalls: Bundle earthquake data with the event for instant updates!
+          ethCalls: [{
+            to: '0xCe083187451f5DcBfA868e08569273a03Bb0d2de',
+            data: encodeFunctionData({
+              abi: [{
+                name: 'getAllPublisherDataForSchema',
+                type: 'function',
+                stateMutability: 'view',
+                inputs: [
+                  { name: 'schemaId', type: 'bytes32' },
+                  { name: 'publisher', type: 'address' }
+                ],
+                outputs: [{ name: '', type: 'bytes[]' }]
+              }],
+              functionName: 'getAllPublisherDataForSchema',
+              args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS]
+            })
+          }],
+          onlyPushChanges: false,
+          onData: (data: unknown) => {
+            console.log('🔔 New earthquake event received with bundled data!')
+            lastFetchTime = Date.now()
+            
+            try {
+              const { result } = data as { result?: { simulationResults?: readonly `0x${string}`[] } }
+              
+              if (result?.simulationResults && result.simulationResults.length > 0) {
+                const rawResult = result.simulationResults[0]
+                const [bytesArray] = decodeAbiParameters(
+                  [{ name: 'data', type: 'bytes[]' }],
+                  rawResult
+                ) as [readonly `0x${string}`[]]
+                
+                if (bytesArray && bytesArray.length > 0) {
+                  const earthquakes: Earthquake[] = []
+                  
+                  for (const encodedData of bytesArray) {
+                    try {
+                      const quake = decodeEarthquake(encodedData)
+                      if (quake.magnitude >= minMagnitude) {
+                        earthquakes.push(quake)
+                      }
+                    } catch (error) {
+                      console.error('❌ Failed to decode earthquake from ethCall:', error)
+                    }
+                  }
+                  
+                  earthquakes.sort((a, b) => b.timestamp - a.timestamp)
+                  
+                  if (earthquakes.length > 0 && isSubscribed) {
+                    const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
+                    const newQuakes = earthquakes.filter(q => !existingIds.has(q.earthquakeId))
+                    
+                    if (newQuakes.length > 0) {
+                      currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
+                      onEarthquakesUpdateRef.current(currentEarthquakes)
+                      console.log(`🔔 New: M${newQuakes[0].magnitude.toFixed(1)} - ${newQuakes[0].location}`)
+                      onNewEarthquakeRef.current(newQuakes[0])
+                      previousCountRef.current = currentEarthquakes.length
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('❌ Failed to process ethCall result:', error)
+              refetchAndMerge() // Fallback to HTTP fetch
+            }
+          },
+          onError: (error: Error) => {
+            console.error('❌ Subscription error:', error)
+            isSubscribed = false
+            
+            // Attempt reconnection after 3 seconds
+            console.log('🔄 Will attempt to reconnect in 3 seconds...')
+            reconnectTimeout = setTimeout(() => {
+              console.log('🔌 Reconnecting WebSocket...')
+              setupSubscription()
+            }, 3000)
+          }
+        })
+        
+        subscription = sub
+        isSubscribed = true
+        isReconnecting = false
+        console.log('✅ Subscribed to EarthquakeDetected events (with ethCalls for zero-latency)')
+      } catch (error) {
+        console.error('❌ Failed to subscribe:', error)
+        isReconnecting = false
+        
+        // Retry after 5 seconds
+        reconnectTimeout = setTimeout(() => {
+          console.log('🔄 Retrying subscription...')
+          setupSubscription()
+        }, 5000)
+      }
+    }
+    
     // Handle visibility change (tab becomes visible after being hidden)
     const handleVisibilityChange = () => {
       if (!document.hidden && isSubscribed) {
         const timeSinceLastFetch = Date.now() - lastFetchTime
-        // If more than 30 seconds since last fetch, refetch
         if (timeSinceLastFetch > 30000) {
           console.log('👁️ Tab became visible, checking for missed earthquakes...')
           refetchAndMerge()
@@ -168,114 +287,16 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     
-    // Subscribe to EarthquakeDetected events
-    sdk.streams.subscribe({
-      somniaStreamsEventId: 'EarthquakeDetected',
-      // ethCalls: Bundle earthquake data with the event for instant updates!
-      // This eliminates the need for a separate fetch, reducing latency from 200-500ms to <50ms
-      ethCalls: [{
-        to: '0xCe083187451f5DcBfA868e08569273a03Bb0d2de', // Data Streams contract address
-        data: encodeFunctionData({
-          abi: [{
-            name: 'getAllPublisherDataForSchema',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [
-              { name: 'schemaId', type: 'bytes32' },
-              { name: 'publisher', type: 'address' }
-            ],
-            outputs: [{ name: '', type: 'bytes[]' }]
-          }],
-          functionName: 'getAllPublisherDataForSchema',
-          args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS]
-        })
-      }],
-      onlyPushChanges: false,
-      onData: (data: unknown) => {
-        console.log('🔔 New earthquake event received with bundled data!')
-        
-        try {
-          // Extract the ethCall simulation result
-          const { result } = data as { result?: { simulationResults?: readonly `0x${string}`[] } }
-          
-          if (result?.simulationResults && result.simulationResults.length > 0) {
-            const rawResult = result.simulationResults[0]
-            
-            // Decode the bytes[] array returned by getAllPublisherDataForSchema
-            const [bytesArray] = decodeAbiParameters(
-              [{ name: 'data', type: 'bytes[]' }],
-              rawResult
-            ) as [readonly `0x${string}`[]]
-            
-            if (bytesArray && bytesArray.length > 0) {
-              // Decode all earthquakes
-              const earthquakes: Earthquake[] = []
-              
-              for (const encodedData of bytesArray) {
-                try {
-                  const quake = decodeEarthquake(encodedData)
-                  if (quake.magnitude >= minMagnitude) {
-                    earthquakes.push(quake)
-                  }
-                } catch (error) {
-                  console.error('❌ Failed to decode earthquake from ethCall:', error)
-                  console.error('   Data:', encodedData?.slice(0, 100) + '...') // Show first 100 chars
-                }
-              }
-              
-              // Sort by timestamp (newest first)
-              earthquakes.sort((a, b) => b.timestamp - a.timestamp)
-              
-              if (earthquakes.length > 0 && isSubscribed) {
-                // MERGE new earthquakes with existing ones instead of replacing
-                const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
-                const newQuakes = earthquakes.filter(q => !existingIds.has(q.earthquakeId))
-                
-                if (newQuakes.length > 0) {
-                  currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
-                  onEarthquakesUpdateRef.current(currentEarthquakes)
-                  
-                  // Notify about the newest earthquake
-                  console.log(`🔔 New: M${newQuakes[0].magnitude.toFixed(1)} - ${newQuakes[0].location}`)
-                  onNewEarthquakeRef.current(newQuakes[0])
-                  previousCountRef.current = currentEarthquakes.length
-                }
-              } else {
-                console.warn('⚠️  No earthquakes decoded from ethCall result')
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ Failed to process ethCall result:', error)
-          // Fallback to refetch if ethCall fails
-          console.log('🔄 Falling back to manual fetch...')
-          fetchInitialQuakes().then(quakes => {
-            if (quakes.length > 0 && isSubscribed) {
-              onEarthquakesUpdateRef.current(quakes)
-              if (quakes.length > previousCountRef.current) {
-                onNewEarthquakeRef.current(quakes[0])
-                previousCountRef.current = quakes.length
-              }
-            }
-          })
-        }
-      },
-      onError: (error: Error) => {
-        console.error('❌ Subscription error:', error)
-        console.log('🔄 Error detected, will refetch on next event or visibility change')
-      }
-    }).then(sub => {
-      subscription = sub
-      isSubscribed = true
-      console.log('✅ Subscribed to EarthquakeDetected events (with ethCalls for zero-latency)')
-      console.log('💡 Automatic refetch will trigger if tab is hidden >30s and becomes visible again')
-    }).catch(error => {
-      console.error('❌ Failed to subscribe:', error)
-    })
+    // Start initial subscription
+    setupSubscription()
     
     // Cleanup on unmount
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
+      }
       
       if (subscription) {
         isSubscribed = false
