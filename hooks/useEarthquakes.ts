@@ -124,6 +124,13 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     
     let subscription: { unsubscribe: () => void } | undefined
     let isSubscribed = false
+    let currentEarthquakes: Earthquake[] = []
+    
+    // Initialize with current earthquakes from initial fetch
+    fetchInitialQuakes().then(quakes => {
+      currentEarthquakes = quakes
+      console.log(`📋 Initialized WebSocket with ${currentEarthquakes.length} earthquakes from initial fetch`)
+    })
     
     // Subscribe to EarthquakeDetected events
     sdk.streams.subscribe({
@@ -185,7 +192,7 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               // Sort by timestamp (newest first)
               earthquakes.sort((a, b) => b.timestamp - a.timestamp)
               
-              console.log(`🔍 Decoded ${earthquakes.length} earthquakes total`)
+              console.log(`🔍 Decoded ${earthquakes.length} new earthquakes from event`)
               console.log('🔍 Sample:', earthquakes.slice(0, 3).map(q => ({
                 id: q.earthquakeId.slice(0, 10),
                 mag: q.magnitude.toFixed(1),
@@ -193,15 +200,23 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               })))
               
               if (earthquakes.length > 0 && isSubscribed) {
-                console.log(`📤 Updating state with ${earthquakes.length} earthquakes`)
-                // Update the full list of earthquakes
-                onEarthquakesUpdateRef.current(earthquakes)
+                // MERGE new earthquakes with existing ones instead of replacing
+                const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
+                const newQuakes = earthquakes.filter(q => !existingIds.has(q.earthquakeId))
                 
-                // If there are more earthquakes than before, notify about the new one
-                if (earthquakes.length > previousCountRef.current) {
-                  console.log(`✨ Zero-latency update: M${earthquakes[0].magnitude.toFixed(1)} - ${earthquakes[0].location}`)
-                  onNewEarthquakeRef.current(earthquakes[0])
-                  previousCountRef.current = earthquakes.length
+                if (newQuakes.length > 0) {
+                  console.log(`✨ Found ${newQuakes.length} truly new earthquake(s)`)
+                  currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
+                  
+                  console.log(`📤 Updating state with ${currentEarthquakes.length} total earthquakes`)
+                  onEarthquakesUpdateRef.current(currentEarthquakes)
+                  
+                  // Notify about the newest earthquake
+                  console.log(`🔔 New: M${newQuakes[0].magnitude.toFixed(1)} - ${newQuakes[0].location}`)
+                  onNewEarthquakeRef.current(newQuakes[0])
+                  previousCountRef.current = currentEarthquakes.length
+                } else {
+                  console.log('ℹ️  No new earthquakes (all already in list)')
                 }
               } else {
                 console.warn('⚠️  No earthquakes decoded from ethCall result')
