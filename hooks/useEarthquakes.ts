@@ -125,12 +125,47 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     let subscription: { unsubscribe: () => void } | undefined
     let isSubscribed = false
     let currentEarthquakes: Earthquake[] = []
+    let lastFetchTime = Date.now()
+    
+    // Helper to refetch all earthquakes and merge with current list
+    const refetchAndMerge = async () => {
+      console.log('🔄 Refetching all earthquakes to catch any missed during disconnect...')
+      const freshQuakes = await fetchInitialQuakes()
+      
+      // Merge with existing, deduplicate by ID
+      const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
+      const newQuakes = freshQuakes.filter(q => !existingIds.has(q.earthquakeId))
+      
+      if (newQuakes.length > 0) {
+        console.log(`✨ Found ${newQuakes.length} earthquake(s) that were missed!`)
+        currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
+        onEarthquakesUpdateRef.current(currentEarthquakes)
+      } else {
+        console.log('✅ No missed earthquakes')
+      }
+      
+      lastFetchTime = Date.now()
+    }
     
     // Initialize with current earthquakes from initial fetch
     fetchInitialQuakes().then(quakes => {
       currentEarthquakes = quakes
       console.log(`📋 Initialized WebSocket with ${currentEarthquakes.length} earthquakes from initial fetch`)
     })
+    
+    // Handle visibility change (tab becomes visible after being hidden)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isSubscribed) {
+        const timeSinceLastFetch = Date.now() - lastFetchTime
+        // If more than 30 seconds since last fetch, refetch
+        if (timeSinceLastFetch > 30000) {
+          console.log('👁️ Tab became visible, checking for missed earthquakes...')
+          refetchAndMerge()
+        }
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     
     // Subscribe to EarthquakeDetected events
     sdk.streams.subscribe({
@@ -240,17 +275,21 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
       },
       onError: (error: Error) => {
         console.error('❌ Subscription error:', error)
+        console.log('🔄 Error detected, will refetch on next event or visibility change')
       }
     }).then(sub => {
       subscription = sub
       isSubscribed = true
       console.log('✅ Subscribed to EarthquakeDetected events (with ethCalls for zero-latency)')
+      console.log('💡 Automatic refetch will trigger if tab is hidden >30s and becomes visible again')
     }).catch(error => {
       console.error('❌ Failed to subscribe:', error)
     })
     
     // Cleanup on unmount
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      
       if (subscription) {
         isSubscribed = false
         subscription.unsubscribe()
