@@ -86,7 +86,7 @@ function PanToEarthquake({
 // Pulsing marker component with fade-out over 1 hour
 function PulsingMarker({ earthquake, currentTime }: { earthquake: Earthquake; currentTime: number }) {
   const [pulse, setPulse] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   useEffect(() => {
     // Trigger pulse animation when marker appears
@@ -94,7 +94,9 @@ function PulsingMarker({ earthquake, currentTime }: { earthquake: Earthquake; cu
     timeoutRef.current = setTimeout(() => setPulse(false), 1000)
     
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current)
+      }
     }
   }, [earthquake.earthquakeId])
   
