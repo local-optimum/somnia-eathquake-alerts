@@ -289,6 +289,13 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
         isSubscribed = true
         isReconnecting = false
         console.log('✅ Subscribed to EarthquakeDetected events (with ethCalls for zero-latency)')
+        
+        // After reconnection, sync currentEarthquakes with on-chain data
+        // This prevents "all duplicates" issue when new quakes were published during disconnect
+        if (isInitialized) {
+          console.log('🔄 Syncing earthquake list after reconnection...')
+          refetchAndMerge()
+        }
       } catch (error) {
         console.error('❌ Failed to subscribe:', error)
         isReconnecting = false
