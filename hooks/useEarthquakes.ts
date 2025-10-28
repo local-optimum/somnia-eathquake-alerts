@@ -193,10 +193,12 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
           onlyPushChanges: false,
           onData: (data: unknown) => {
             console.log('🔔 New earthquake event received with bundled data!')
+            console.log('🔍 Raw data type:', typeof data, 'keys:', data ? Object.keys(data) : 'null')
             lastFetchTime = Date.now()
             
             try {
               const { result } = data as { result?: { simulationResults?: readonly `0x${string}`[] } }
+              console.log('🔍 result exists?', !!result, 'simulationResults exists?', !!result?.simulationResults)
               
               if (!result?.simulationResults) {
                 console.warn('⚠️  No simulationResults in event data:', data)
