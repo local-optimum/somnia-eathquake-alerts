@@ -34,7 +34,7 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false)
   const [jumpToTime, setJumpToTime] = useState<number | null>(null)
   const [newEarthquakeId, setNewEarthquakeId] = useState<string | null>(null)
-  const newQuakeRef = useRef<HTMLDivElement>(null)
+  const newQuakeRef = useRef<HTMLButtonElement>(null)
   
   // Track when component is mounted (client-side only)
   useEffect(() => {
