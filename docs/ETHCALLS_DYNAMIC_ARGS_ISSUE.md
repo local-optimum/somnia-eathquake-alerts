@@ -362,6 +362,43 @@ await sdk.streams.subscribeWithAutoFetch({
 
 ---
 
+## Additional Issue: multicall3 Not Available
+
+While implementing the workaround, we discovered another limitation:
+
+**Problem:** `getBetweenRange` uses `multicall3` internally to batch multiple `getAtIndex` calls efficiently. However, Somnia Testnet does not have `multicall3` deployed (or configured in the chain definition).
+
+**Error:**
+```
+ChainDoesNotSupportContract: Chain "Somnia Testnet" does not support contract "multicall3".
+```
+
+**Impact:**
+- Can't use `getBetweenRange` efficiently
+- Must fall back to individual `getAtIndex` calls
+- Performance degradation when catching up on missed events (N sequential calls instead of 1 batched call)
+
+**Workaround:**
+```typescript
+let newData
+try {
+  newData = await sdk.streams.getBetweenRange(schemaId, publisher, start, end)
+} catch (error) {
+  // Fallback: fetch each index individually
+  newData = []
+  for (let i = start; i <= end; i++) {
+    const data = await sdk.streams.getAtIndex(schemaId, publisher, i)
+    if (data && !(data instanceof Error)) {
+      newData.push(...data)
+    }
+  }
+}
+```
+
+**Recommendation:** Deploy multicall3 to Somnia or add it to the chain configuration so `getBetweenRange` can work efficiently.
+
+---
+
 ## Testing Notes
 
 ### How to Reproduce
