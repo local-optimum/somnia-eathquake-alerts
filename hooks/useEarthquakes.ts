@@ -160,8 +160,8 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
           totalOnChain - BigInt(1)
         )
         
-        if (!missedData || missedData.length === 0) {
-          console.warn('⚠️  getBetweenRange returned no data')
+        if (!missedData || missedData instanceof Error || missedData.length === 0) {
+          console.warn('⚠️  getBetweenRange returned no data or error')
           lastFetchTime = Date.now()
           return
         }
@@ -225,7 +225,7 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
         try {
           subscription.unsubscribe()
           isSubscribed = false
-        } catch (e) {
+        } catch {
           // Ignore errors during cleanup
         }
       }
@@ -403,7 +403,7 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
         )
         currentIndex = total || BigInt(0)
         console.log(`✅ Set currentIndex to ${currentIndex}`)
-      } catch (error) {
+      } catch {
         console.warn('⚠️  Failed to get total count, currentIndex remains 0')
       }
       
