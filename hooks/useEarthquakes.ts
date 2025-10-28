@@ -238,29 +238,28 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
           somniaStreamsEventId: 'EarthquakeDetected',
           // ethCalls: Bundle earthquake data with the event for instant updates!
           ethCalls: [
-            // Get the earthquake at currentIndex (the one that triggered this event)
+            // Get total count - we'll use this to detect new earthquakes
             {
               to: '0xCe083187451f5DcBfA868e08569273a03Bb0d2de',
               data: encodeFunctionData({
                 abi: [{
-                  name: 'getAtIndex',
+                  name: 'totalPublisherDataForSchema',
                   type: 'function',
                   stateMutability: 'view',
                   inputs: [
                     { name: 'schemaId', type: 'bytes32' },
-                    { name: 'publisher', type: 'address' },
-                    { name: 'index', type: 'uint256' }
+                    { name: 'publisher', type: 'address' }
                   ],
-                  outputs: [{ name: '', type: 'bytes[]' }]
+                  outputs: [{ name: '', type: 'uint256' }]
                 }],
-                functionName: 'getAtIndex',
-                args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS, currentIndex]
+                functionName: 'totalPublisherDataForSchema',
+                args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS]
               })
             }
           ],
           onlyPushChanges: false,
-          onData: (data: unknown) => {
-            console.log('🔔 New earthquake event received with bundled data!')
+          onData: async (data: unknown) => {
+            console.log('🔔 New earthquake event received!')
             lastFetchTime = Date.now()
             
             try {
@@ -271,72 +270,98 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
                 return
               }
               
-              // Decode the bytes[] from getAtIndex ethCall
-              const [bytesArray] = decodeAbiParameters(
-                [{ name: 'data', type: 'bytes[]' }],
+              // Decode total count from ethCall
+              const [totalOnChain] = decodeAbiParameters(
+                [{ name: 'total', type: 'uint256' }],
                 result.simulationResults[0]
-              ) as [readonly `0x${string}`[]]
+              ) as [bigint]
               
-              if (!bytesArray || bytesArray.length === 0) {
-                console.warn('⚠️  ethCall returned empty data')
+              console.log(`✅ Total on-chain: ${totalOnChain}, currentIndex: ${currentIndex}`)
+              
+              // No new earthquakes
+              if (totalOnChain <= currentIndex) {
+                console.log('ℹ️  No new earthquakes (total <= currentIndex)')
                 return
               }
               
-              console.log(`✅ Received earthquake at index ${currentIndex} from ethCall (zero extra fetches!)`)
+              // Fetch new earthquake(s) - typically just 1 per event
+              // This is unavoidable because ethCall args are static at subscription time
+              console.log(`📥 Fetching new earthquake(s): index ${currentIndex} to ${totalOnChain - BigInt(1)}`)
+              const fetchSdk = getClientFetchSDK()
+              const newData = await fetchSdk.streams.getBetweenRange(
+                EARTHQUAKE_SCHEMA_ID,
+                PUBLISHER_ADDRESS,
+                currentIndex,
+                totalOnChain - BigInt(1)
+              )
               
-              // Decode the single earthquake
-              const encodedData = bytesArray[0]
-              let quake: Earthquake
+              if (!newData || newData instanceof Error || newData.length === 0) {
+                console.warn('⚠️  getBetweenRange returned no data')
+                return
+              }
               
-              if (typeof encodedData === 'string') {
-                quake = decodeEarthquake(encodedData as `0x${string}`)
-              } else {
-                // Already decoded by SDK
-                const decoded = encodedData as Array<{ value: { value: unknown } }>
-                quake = {
-                  earthquakeId: String(decoded[0]?.value?.value || ''),
-                  location: String(decoded[1]?.value?.value || ''),
-                  magnitude: Number(decoded[2]?.value?.value || 0) / 10,
-                  depth: Number(decoded[3]?.value?.value || 0) / 1000,
-                  latitude: Number(decoded[4]?.value?.value || 0) / 1000000,
-                  longitude: Number(decoded[5]?.value?.value || 0) / 1000000,
-                  timestamp: Number(decoded[6]?.value?.value || 0),
-                  url: String(decoded[7]?.value?.value || '')
+              console.log(`✅ Fetched ${newData.length} new earthquake(s)`)
+              
+              // Decode new earthquakes
+              const newQuakes: Earthquake[] = []
+              for (const encodedData of newData) {
+                try {
+                  let quake: Earthquake
+                  if (typeof encodedData === 'string') {
+                    quake = decodeEarthquake(encodedData as `0x${string}`)
+                  } else {
+                    const decoded = encodedData as Array<{ value: { value: unknown } }>
+                    quake = {
+                      earthquakeId: String(decoded[0]?.value?.value || ''),
+                      location: String(decoded[1]?.value?.value || ''),
+                      magnitude: Number(decoded[2]?.value?.value || 0) / 10,
+                      depth: Number(decoded[3]?.value?.value || 0) / 1000,
+                      latitude: Number(decoded[4]?.value?.value || 0) / 1000000,
+                      longitude: Number(decoded[5]?.value?.value || 0) / 1000000,
+                      timestamp: Number(decoded[6]?.value?.value || 0),
+                      url: String(decoded[7]?.value?.value || '')
+                    }
+                  }
+                  
+                  if (quake.magnitude >= minMagnitude) {
+                    newQuakes.push(quake)
+                  }
+                } catch (error) {
+                  console.error('❌ Failed to decode earthquake:', error)
                 }
               }
               
-              // Filter by magnitude
-              if (quake.magnitude < minMagnitude) {
-                console.log(`ℹ️  Earthquake filtered out: M${quake.magnitude} < ${minMagnitude}`)
-                currentIndex++ // Still increment index
+              if (newQuakes.length === 0) {
+                console.log(`ℹ️  All fetched earthquakes filtered out (magnitude < ${minMagnitude})`)
+                currentIndex = totalOnChain
                 return
               }
               
               if (!isSubscribed) {
-                console.warn(`⚠️  Received earthquake but isSubscribed=${isSubscribed}, ignoring`)
+                console.warn(`⚠️  Received earthquakes but not subscribed, ignoring`)
                 return
               }
               
-              // Check if already exists (shouldn't happen, but safety check)
+              // Add new earthquakes (dedupe by ID just in case)
               const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
-              if (existingIds.has(quake.earthquakeId)) {
-                console.log(`ℹ️  Earthquake ${quake.earthquakeId} already in list (duplicate)`)
-                currentIndex++
-                return
+              const trulyNew = newQuakes.filter(q => !existingIds.has(q.earthquakeId))
+              
+              if (trulyNew.length > 0) {
+                currentEarthquakes = [...currentEarthquakes, ...trulyNew].sort((a, b) => b.timestamp - a.timestamp)
+                currentIndex = totalOnChain
+                
+                console.log(`🎉 Added ${trulyNew.length} new earthquake(s)! Total: ${currentEarthquakes.length}, currentIndex: ${currentIndex}`)
+                
+                onEarthquakesUpdateRef.current(currentEarthquakes)
+                // Notify about the first new earthquake
+                onNewEarthquakeRef.current(trulyNew[0])
+                previousCountRef.current = currentEarthquakes.length
+              } else {
+                console.log(`ℹ️  All earthquakes already in list (duplicates)`)
+                currentIndex = totalOnChain
               }
-              
-              // Add the new earthquake
-              currentEarthquakes = [...currentEarthquakes, quake].sort((a, b) => b.timestamp - a.timestamp)
-              currentIndex++ // Increment for next event
-              
-              console.log(`📊 New earthquake added: M${quake.magnitude.toFixed(1)} - ${quake.location}`)
-              console.log(`✅ Updated currentIndex to ${currentIndex}, total earthquakes: ${currentEarthquakes.length}`)
-              
-              onEarthquakesUpdateRef.current(currentEarthquakes)
-              onNewEarthquakeRef.current(quake)
-              previousCountRef.current = currentEarthquakes.length
             } catch (error) {
-              console.error('❌ Failed to process ethCall result:', error)
+              console.error('❌ Failed to process event:', error)
             }
           },
           onError: (error: Error) => {
