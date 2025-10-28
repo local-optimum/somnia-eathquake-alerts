@@ -152,16 +152,38 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
         
         console.log(`📥 Fetching missed earthquakes: index ${currentIndex} to ${totalOnChain - BigInt(1)}`)
         
-        // Fetch missed earthquakes
-        const missedData = await fetchSdk.streams.getBetweenRange(
-          EARTHQUAKE_SCHEMA_ID,
-          PUBLISHER_ADDRESS,
-          currentIndex,
-          totalOnChain - BigInt(1)
-        )
+        // Fetch missed earthquakes (fallback to individual calls if getBetweenRange fails)
+        let missedData
+        try {
+          missedData = await fetchSdk.streams.getBetweenRange(
+            EARTHQUAKE_SCHEMA_ID,
+            PUBLISHER_ADDRESS,
+            currentIndex,
+            totalOnChain - BigInt(1)
+          )
+        } catch (error) {
+          console.warn('⚠️  getBetweenRange failed (multicall3 not available?), falling back to individual getAtIndex calls')
+          
+          // Fallback: fetch each index individually
+          missedData = []
+          for (let i = currentIndex; i < totalOnChain; i++) {
+            try {
+              const data = await fetchSdk.streams.getAtIndex(
+                EARTHQUAKE_SCHEMA_ID,
+                PUBLISHER_ADDRESS,
+                i
+              )
+              if (data && !(data instanceof Error)) {
+                missedData.push(...data)
+              }
+            } catch (err) {
+              console.error(`❌ Failed to fetch index ${i}:`, err)
+            }
+          }
+        }
         
         if (!missedData || missedData instanceof Error || missedData.length === 0) {
-          console.warn('⚠️  getBetweenRange returned no data or error')
+          console.warn('⚠️  No missed data fetched')
           lastFetchTime = Date.now()
           return
         }
@@ -288,15 +310,38 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               // This is unavoidable because ethCall args are static at subscription time
               console.log(`📥 Fetching new earthquake(s): index ${currentIndex} to ${totalOnChain - BigInt(1)}`)
               const fetchSdk = getClientFetchSDK()
-              const newData = await fetchSdk.streams.getBetweenRange(
-                EARTHQUAKE_SCHEMA_ID,
-                PUBLISHER_ADDRESS,
-                currentIndex,
-                totalOnChain - BigInt(1)
-              )
+              
+              let newData
+              try {
+                newData = await fetchSdk.streams.getBetweenRange(
+                  EARTHQUAKE_SCHEMA_ID,
+                  PUBLISHER_ADDRESS,
+                  currentIndex,
+                  totalOnChain - BigInt(1)
+                )
+              } catch (error) {
+                console.warn('⚠️  getBetweenRange failed, falling back to getAtIndex')
+                
+                // Fallback: fetch each index individually
+                newData = []
+                for (let i = currentIndex; i < totalOnChain; i++) {
+                  try {
+                    const data = await fetchSdk.streams.getAtIndex(
+                      EARTHQUAKE_SCHEMA_ID,
+                      PUBLISHER_ADDRESS,
+                      i
+                    )
+                    if (data && !(data instanceof Error)) {
+                      newData.push(...data)
+                    }
+                  } catch (err) {
+                    console.error(`❌ Failed to fetch index ${i}:`, err)
+                  }
+                }
+              }
               
               if (!newData || newData instanceof Error || newData.length === 0) {
-                console.warn('⚠️  getBetweenRange returned no data')
+                console.warn('⚠️  No new data fetched')
                 return
               }
               
