@@ -173,23 +173,28 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
         const sub = await sdk.streams.subscribe({
           somniaStreamsEventId: 'EarthquakeDetected',
           // ethCalls: Bundle earthquake data with the event for instant updates!
-          ethCalls: [{
-            to: '0xCe083187451f5DcBfA868e08569273a03Bb0d2de',
-            data: encodeFunctionData({
-              abi: [{
-                name: 'getAllPublisherDataForSchema',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [
-                  { name: 'schemaId', type: 'bytes32' },
-                  { name: 'publisher', type: 'address' }
-                ],
-                outputs: [{ name: '', type: 'bytes[]' }]
-              }],
-              functionName: 'getAllPublisherDataForSchema',
-              args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS]
-            })
-          }],
+          ethCalls: [
+            // Get all earthquakes using getBetweenRange (0 to 200 to cover all)
+            {
+              to: '0xCe083187451f5DcBfA868e08569273a03Bb0d2de',
+              data: encodeFunctionData({
+                abi: [{
+                  name: 'getBetweenRange',
+                  type: 'function',
+                  stateMutability: 'view',
+                  inputs: [
+                    { name: 'schemaId', type: 'bytes32' },
+                    { name: 'publisher', type: 'address' },
+                    { name: 'startIndex', type: 'uint256' },
+                    { name: 'endIndex', type: 'uint256' }
+                  ],
+                  outputs: [{ name: '', type: 'bytes[]' }]
+                }],
+                functionName: 'getBetweenRange',
+                args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS, 0n, 200n] // Get first 200 earthquakes
+              })
+            }
+          ],
           onlyPushChanges: false,
           onData: (data: unknown) => {
             console.log('🔔 New earthquake event received with bundled data!')
