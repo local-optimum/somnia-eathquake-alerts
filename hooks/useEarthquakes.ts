@@ -211,10 +211,14 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               console.log(`✅ Processing simulationResults with ${result.simulationResults.length} result(s)`)
               
               const rawResult = result.simulationResults[0]
+              console.log(`🔍 Raw ethCall result length: ${rawResult.length} bytes`)
+              
               const [bytesArray] = decodeAbiParameters(
                 [{ name: 'data', type: 'bytes[]' }],
                 rawResult
               ) as [readonly `0x${string}`[]]
+              
+              console.log(`🔍 bytesArray type: ${Array.isArray(bytesArray) ? 'array' : typeof bytesArray}, length: ${bytesArray?.length}`)
               
               if (!bytesArray || bytesArray.length === 0) {
                 console.warn('⚠️  Decoded bytesArray is empty or null')
