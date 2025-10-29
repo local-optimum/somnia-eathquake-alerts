@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
-import { encodeFunctionData, decodeAbiParameters } from 'viem'
-import { EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS } from '@/lib/constants'
+import { encodeFunctionData, decodeFunctionResult } from 'viem'
+import { SchemaEncoder } from '@somnia-chain/streams'
+import { EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS, EARTHQUAKE_SCHEMA } from '@/lib/constants'
 import { decodeEarthquake } from '@/lib/earthquake-encoding'
 import { getClientSDK, getClientFetchSDK } from '@/lib/client-sdk'
 import type { Earthquake } from '@/types/earthquake'
@@ -129,111 +130,25 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     let reconnectTimeout: NodeJS.Timeout | null = null
     let isReconnecting = false
     let isInitialized = false
-    let currentIndex = BigInt(0) // Track which earthquakes we've already fetched
     
-    // Safety fallback: catch up on missed earthquakes after disconnect using getBetweenRange
+    // Safety fallback: refetch all earthquakes after disconnect and merge with current list
     const refetchAndMerge = async () => {
-      console.log('🔄 Catching up on missed earthquakes after disconnect...')
+      console.log('🔄 Refetching all earthquakes to catch any missed during disconnect...')
+      const freshQuakes = await fetchInitialQuakes()
       
-      try {
-        const fetchSdk = getClientFetchSDK()
-        
-        // Get current total on-chain
-        const totalOnChain = await fetchSdk.streams.totalPublisherDataForSchema(
-          EARTHQUAKE_SCHEMA_ID,
-          PUBLISHER_ADDRESS
-        )
-        
-        if (!totalOnChain || totalOnChain <= currentIndex) {
-          console.log('✅ No missed earthquakes during disconnect')
-          lastFetchTime = Date.now()
-          return
-        }
-        
-        console.log(`📥 Fetching missed earthquakes: index ${currentIndex} to ${totalOnChain - BigInt(1)}`)
-        
-        // Fetch missed earthquakes (fallback to individual calls if getBetweenRange fails)
-        let missedData
-        try {
-          missedData = await fetchSdk.streams.getBetweenRange(
-            EARTHQUAKE_SCHEMA_ID,
-            PUBLISHER_ADDRESS,
-            currentIndex,
-            totalOnChain - BigInt(1)
-          )
-        } catch (error) {
-          console.warn('⚠️  getBetweenRange failed (multicall3 not available?), falling back to individual getAtIndex calls')
-          
-          // Fallback: fetch each index individually
-          missedData = []
-          for (let i = currentIndex; i < totalOnChain; i++) {
-            try {
-              const data = await fetchSdk.streams.getAtIndex(
-                EARTHQUAKE_SCHEMA_ID,
-                PUBLISHER_ADDRESS,
-                i
-              )
-              if (data && !(data instanceof Error)) {
-                missedData.push(...data)
-              }
-            } catch (err) {
-              console.error(`❌ Failed to fetch index ${i}:`, err)
-            }
-          }
-        }
-        
-        if (!missedData || missedData instanceof Error || missedData.length === 0) {
-          console.warn('⚠️  No missed data fetched')
-          lastFetchTime = Date.now()
-          return
-        }
-        
-        // Decode and filter
-        const missedQuakes: Earthquake[] = []
-        for (const encodedData of missedData) {
-          try {
-            let quake: Earthquake
-            if (typeof encodedData === 'string') {
-              quake = decodeEarthquake(encodedData as `0x${string}`)
-            } else {
-              const decoded = encodedData as Array<{ value: { value: unknown } }>
-              quake = {
-                earthquakeId: String(decoded[0]?.value?.value || ''),
-                location: String(decoded[1]?.value?.value || ''),
-                magnitude: Number(decoded[2]?.value?.value || 0) / 10,
-                depth: Number(decoded[3]?.value?.value || 0) / 1000,
-                latitude: Number(decoded[4]?.value?.value || 0) / 1000000,
-                longitude: Number(decoded[5]?.value?.value || 0) / 1000000,
-                timestamp: Number(decoded[6]?.value?.value || 0),
-                url: String(decoded[7]?.value?.value || '')
-              }
-            }
-            if (quake.magnitude >= minMagnitude) {
-              missedQuakes.push(quake)
-            }
-          } catch (error) {
-            console.error('❌ Failed to decode missed earthquake:', error)
-          }
-        }
-        
-        // Merge with existing
-        const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
-        const newQuakes = missedQuakes.filter(q => !existingIds.has(q.earthquakeId))
-        
-        if (newQuakes.length > 0) {
-          console.log(`✅ Caught up: ${newQuakes.length} missed earthquake(s)`)
-          currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
-          onEarthquakesUpdateRef.current(currentEarthquakes)
-        }
-        
-        // Update currentIndex to latest
-        currentIndex = totalOnChain
-        console.log(`✅ Updated currentIndex to ${currentIndex}`)
-        lastFetchTime = Date.now()
-      } catch (error) {
-        console.error('❌ Failed to catch up on missed earthquakes:', error)
-        lastFetchTime = Date.now()
+      // Merge with existing, deduplicate by ID
+      const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
+      const newQuakes = freshQuakes.filter(q => !existingIds.has(q.earthquakeId))
+      
+      if (newQuakes.length > 0) {
+        console.log(`✨ Found ${newQuakes.length} earthquake(s) that were missed!`)
+        currentEarthquakes = [...currentEarthquakes, ...newQuakes].sort((a, b) => b.timestamp - a.timestamp)
+        onEarthquakesUpdateRef.current(currentEarthquakes)
+      } else {
+        console.log('✅ No missed earthquakes')
       }
+      
+      lastFetchTime = Date.now()
     }
     
     // Setup subscription function (called initially and on reconnect)
@@ -255,33 +170,35 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
       try {
         const sdk = getClientSDK()
         
+        // Get protocol info for ethCalls
+        const protocolInfoResult = await sdk.streams.getSomniaDataStreamsProtocolInfo()
+        
+        if (!protocolInfoResult || protocolInfoResult instanceof Error) {
+          throw new Error('Failed to get protocol info')
+        }
+        
+        const protocolInfo = protocolInfoResult
+        
+        // Create schema encoder
+        const schemaEncoder = new SchemaEncoder(EARTHQUAKE_SCHEMA)
+        
         // Subscribe to EarthquakeDetected events
         const sub = await sdk.streams.subscribe({
           somniaStreamsEventId: 'EarthquakeDetected',
-          // ethCalls: Bundle earthquake data with the event for instant updates!
+          // ethCalls: Bundle the LATEST earthquake data with every event! (v0.9.1 feature)
           ethCalls: [
-            // Get total count - we'll use this to detect new earthquakes
             {
-              to: '0xCe083187451f5DcBfA868e08569273a03Bb0d2de',
+              to: protocolInfo.address as `0x${string}`,
               data: encodeFunctionData({
-                abi: [{
-                  name: 'totalPublisherDataForSchema',
-                  type: 'function',
-                  stateMutability: 'view',
-                  inputs: [
-                    { name: 'schemaId', type: 'bytes32' },
-                    { name: 'publisher', type: 'address' }
-                  ],
-                  outputs: [{ name: '', type: 'uint256' }]
-                }],
-                functionName: 'totalPublisherDataForSchema',
+                abi: protocolInfo.abi,
+                functionName: 'getLastPublishedDataForSchema',
                 args: [EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS]
               })
             }
           ],
           onlyPushChanges: false,
-          onData: async (data: unknown) => {
-            console.log('🔔 New earthquake event received!')
+          onData: (data: unknown) => {
+            console.log('🔔 New earthquake event received with bundled data!')
             lastFetchTime = Date.now()
             
             try {
@@ -292,119 +209,64 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
                 return
               }
               
-              // Decode total count from ethCall
-              const [totalOnChain] = decodeAbiParameters(
-                [{ name: 'total', type: 'uint256' }],
-                result.simulationResults[0]
-              ) as [bigint]
+              // Decode the LATEST earthquake from ethCall (v0.9.1 feature!)
+              const lastPublishedData = decodeFunctionResult({
+                abi: protocolInfo.abi,
+                functionName: 'getLastPublishedDataForSchema',
+                data: result.simulationResults[0]
+              }) as readonly `0x${string}`[]
               
-              console.log(`✅ Total on-chain: ${totalOnChain}, currentIndex: ${currentIndex}`)
-              
-              // No new earthquakes
-              if (totalOnChain <= currentIndex) {
-                console.log('ℹ️  No new earthquakes (total <= currentIndex)')
+              if (!lastPublishedData || lastPublishedData.length === 0) {
+                console.warn('⚠️  No earthquake data in ethCall result')
                 return
               }
               
-              // Fetch new earthquake(s) - typically just 1 per event
-              // This is unavoidable because ethCall args are static at subscription time
-              console.log(`📥 Fetching new earthquake(s): index ${currentIndex} to ${totalOnChain - BigInt(1)}`)
-              const fetchSdk = getClientFetchSDK()
+              console.log('✅ Received latest earthquake from ethCall (ZERO additional fetches!)')
               
-              let newData
-              try {
-                newData = await fetchSdk.streams.getBetweenRange(
-                  EARTHQUAKE_SCHEMA_ID,
-                  PUBLISHER_ADDRESS,
-                  currentIndex,
-                  totalOnChain - BigInt(1)
-                )
-              } catch (error) {
-                console.warn('⚠️  getBetweenRange failed, falling back to getAtIndex')
-                
-                // Fallback: fetch each index individually
-                newData = []
-                for (let i = currentIndex; i < totalOnChain; i++) {
-                  try {
-                    const data = await fetchSdk.streams.getAtIndex(
-                      EARTHQUAKE_SCHEMA_ID,
-                      PUBLISHER_ADDRESS,
-                      i
-                    )
-                    if (data && !(data instanceof Error)) {
-                      newData.push(...data)
-                    }
-                  } catch (err) {
-                    console.error(`❌ Failed to fetch index ${i}:`, err)
-                  }
-                }
+              // Decode using SchemaEncoder (v0.9.1 feature!)
+              // @ts-expect-error - decode method exists in v0.9.1 but types may not be updated yet
+              const decoded = schemaEncoder.decode(lastPublishedData)
+              
+              // Parse into Earthquake object
+              const quake: Earthquake = {
+                earthquakeId: String(decoded[0]?.value || ''),
+                location: String(decoded[1]?.value || ''),
+                magnitude: Number(decoded[2]?.value || 0) / 10,
+                depth: Number(decoded[3]?.value || 0) / 1000,
+                latitude: Number(decoded[4]?.value || 0) / 1000000,
+                longitude: Number(decoded[5]?.value || 0) / 1000000,
+                timestamp: Number(decoded[6]?.value || 0),
+                url: String(decoded[7]?.value || '')
               }
               
-              if (!newData || newData instanceof Error || newData.length === 0) {
-                console.warn('⚠️  No new data fetched')
-                return
-              }
+              console.log(`📊 Decoded: M${quake.magnitude.toFixed(1)} - ${quake.location}`)
               
-              console.log(`✅ Fetched ${newData.length} new earthquake(s)`)
-              
-              // Decode new earthquakes
-              const newQuakes: Earthquake[] = []
-              for (const encodedData of newData) {
-                try {
-                  let quake: Earthquake
-                  if (typeof encodedData === 'string') {
-                    quake = decodeEarthquake(encodedData as `0x${string}`)
-                  } else {
-                    const decoded = encodedData as Array<{ value: { value: unknown } }>
-                    quake = {
-                      earthquakeId: String(decoded[0]?.value?.value || ''),
-                      location: String(decoded[1]?.value?.value || ''),
-                      magnitude: Number(decoded[2]?.value?.value || 0) / 10,
-                      depth: Number(decoded[3]?.value?.value || 0) / 1000,
-                      latitude: Number(decoded[4]?.value?.value || 0) / 1000000,
-                      longitude: Number(decoded[5]?.value?.value || 0) / 1000000,
-                      timestamp: Number(decoded[6]?.value?.value || 0),
-                      url: String(decoded[7]?.value?.value || '')
-                    }
-                  }
-                  
-                  if (quake.magnitude >= minMagnitude) {
-                    newQuakes.push(quake)
-                  }
-                } catch (error) {
-                  console.error('❌ Failed to decode earthquake:', error)
-                }
-              }
-              
-              if (newQuakes.length === 0) {
-                console.log(`ℹ️  All fetched earthquakes filtered out (magnitude < ${minMagnitude})`)
-                currentIndex = totalOnChain
+              // Filter by magnitude
+              if (quake.magnitude < minMagnitude) {
+                console.log(`ℹ️  Earthquake filtered out: M${quake.magnitude} < ${minMagnitude}`)
                 return
               }
               
               if (!isSubscribed) {
-                console.warn(`⚠️  Received earthquakes but not subscribed, ignoring`)
+                console.warn(`⚠️  Received earthquake but not subscribed, ignoring`)
                 return
               }
               
-              // Add new earthquakes (dedupe by ID just in case)
+              // Check if already exists (dedupe by ID)
               const existingIds = new Set(currentEarthquakes.map(q => q.earthquakeId))
-              const trulyNew = newQuakes.filter(q => !existingIds.has(q.earthquakeId))
-              
-              if (trulyNew.length > 0) {
-                currentEarthquakes = [...currentEarthquakes, ...trulyNew].sort((a, b) => b.timestamp - a.timestamp)
-                currentIndex = totalOnChain
-                
-                console.log(`🎉 Added ${trulyNew.length} new earthquake(s)! Total: ${currentEarthquakes.length}, currentIndex: ${currentIndex}`)
-                
-                onEarthquakesUpdateRef.current(currentEarthquakes)
-                // Notify about the first new earthquake
-                onNewEarthquakeRef.current(trulyNew[0])
-                previousCountRef.current = currentEarthquakes.length
-              } else {
-                console.log(`ℹ️  All earthquakes already in list (duplicates)`)
-                currentIndex = totalOnChain
+              if (existingIds.has(quake.earthquakeId)) {
+                console.log(`ℹ️  Earthquake ${quake.earthquakeId} already in list (duplicate)`)
+                return
               }
+              
+              // Add the new earthquake
+              currentEarthquakes = [...currentEarthquakes, quake].sort((a, b) => b.timestamp - a.timestamp)
+              
+              console.log(`🎉 New earthquake added! Total: ${currentEarthquakes.length}`)
+              
+              onEarthquakesUpdateRef.current(currentEarthquakes)
+              onNewEarthquakeRef.current(quake)
+              previousCountRef.current = currentEarthquakes.length
             } catch (error) {
               console.error('❌ Failed to process event:', error)
             }
@@ -459,23 +321,10 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
     
     // Initialize: Fetch all earthquakes FIRST, then set up WebSocket subscription
     // This prevents race condition where WebSocket events arrive before initial fetch completes
-    fetchInitialQuakes().then(async quakes => {
+    fetchInitialQuakes().then(quakes => {
       currentEarthquakes = quakes
       isInitialized = true
       console.log(`📋 Initialized with ${currentEarthquakes.length} earthquakes, now setting up WebSocket...`)
-      
-      // Set currentIndex to the total count so we only fetch NEW earthquakes via events
-      try {
-        const initSdk = getClientFetchSDK()
-        const total = await initSdk.streams.totalPublisherDataForSchema(
-          EARTHQUAKE_SCHEMA_ID,
-          PUBLISHER_ADDRESS
-        )
-        currentIndex = total || BigInt(0)
-        console.log(`✅ Set currentIndex to ${currentIndex}`)
-      } catch {
-        console.warn('⚠️  Failed to get total count, currentIndex remains 0')
-      }
       
       // NOW start WebSocket subscription
       setupSubscription()
