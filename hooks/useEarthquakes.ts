@@ -206,31 +206,22 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               }
               
               // Decode the LATEST earthquake from ethCall (v0.9.1 feature!)
+              // Note: getLastPublishedDataForSchema returns a SINGLE bytes value, not bytes[]
               const lastPublishedData = decodeFunctionResult({
                 abi: protocolInfo.abi,
                 functionName: 'getLastPublishedDataForSchema',
                 data: result.simulationResults[0]
-              }) as readonly `0x${string}`[]
+              }) as `0x${string}` // Single bytes, not array!
               
-              console.log('🔍 lastPublishedData type:', typeof lastPublishedData)
-              console.log('🔍 lastPublishedData length:', lastPublishedData?.length)
-              console.log('🔍 lastPublishedData[0]:', lastPublishedData?.[0])
-              console.log('🔍 lastPublishedData[0] length:', lastPublishedData?.[0]?.length)
-              
-              if (!lastPublishedData || lastPublishedData.length === 0) {
+              if (!lastPublishedData || lastPublishedData === '0x') {
                 console.warn('⚠️  No earthquake data in ethCall result')
-                return
-              }
-              
-              if (!lastPublishedData[0] || lastPublishedData[0] === '0x') {
-                console.warn('⚠️  First element is empty (0x)')
                 return
               }
               
               console.log('✅ Received latest earthquake from ethCall (ZERO additional fetches!)')
               
-              // Decode earthquake data (SchemaEncoder.decode not available yet in v0.9.1)
-              const quake = decodeEarthquake(lastPublishedData[0])
+              // Decode earthquake data directly (it's already a single bytes value)
+              const quake = decodeEarthquake(lastPublishedData)
               
               console.log(`📊 Decoded: M${quake.magnitude.toFixed(1)} - ${quake.location}`)
               
