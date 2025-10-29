@@ -3,7 +3,84 @@
 **Date:** October 28, 2025  
 **Project:** Earthquake Alerts Demo (Somnia Data Streams)  
 **Severity:** Medium - Limits zero-fetch use case for growing datasets  
-**Status:** Current Workaround Implemented
+**Status:** ✅ RESOLVED IN v0.9.1 🎉
+
+---
+
+## 🎉 RESOLUTION (SDK v0.9.1)
+
+**The Somnia team delivered a perfect solution!** SDK v0.9.1 introduces:
+
+### New Features
+
+1. **`getLastPublishedDataForSchema(schemaId, publisher)`**
+   - Always returns the LATEST published data
+   - No dynamic index needed!
+   - Perfect for time-series/append-only data
+   
+2. **`SchemaEncoder.decode(data)`**
+   - Proper decoding method now exists in SDK
+   - Clean, simple API
+   
+3. **`getBetweenRange` without multicall3**
+   - Uses new contract view function
+   - No longer requires multicall3
+   - Works on all chains!
+
+### The Working Pattern (v0.9.1+)
+
+```typescript
+// Get protocol info
+const protocolInfo = await sdk.streams.getSomniaDataStreamsProtocolInfo()
+
+// Create encoder
+const schemaEncoder = new SchemaEncoder(EARTHQUAKE_SCHEMA)
+
+// Subscribe with ethCall that gets LATEST data
+await sdk.streams.subscribe({
+  somniaStreamsEventId: 'EarthquakeDetected',
+  ethCalls: [{
+    to: protocolInfo.address,
+    data: encodeFunctionData({
+      abi: protocolInfo.abi,
+      functionName: 'getLastPublishedDataForSchema',
+      args: [schemaId, publisher]
+    })
+  }],
+  onData: (data) => {
+    // Decode latest earthquake from ethCall
+    const lastPublishedData = decodeFunctionResult({
+      abi: protocolInfo.abi,
+      functionName: 'getLastPublishedDataForSchema',
+      data: data.result.simulationResults[0]
+    })
+    
+    // Decode with SchemaEncoder
+    const decoded = schemaEncoder.decode(lastPublishedData)
+    
+    // Process earthquake - it came bundled with the event!
+    const quake = parseEarthquake(decoded)
+    addToUI(quake)
+    
+    // ZERO additional fetches! 🚀
+  }
+})
+```
+
+### Result
+
+✅ TRUE zero-fetch pattern achieved!  
+✅ No static argument limitations  
+✅ No index tracking needed  
+✅ No multicall3 workarounds  
+✅ Clean, simple code  
+✅ Works perfectly for time-series data  
+
+**This is exactly what ethCalls was designed for!**
+
+---
+
+## Original Issue (For Historical Reference)
 
 ---
 
@@ -364,38 +441,9 @@ await sdk.streams.subscribeWithAutoFetch({
 
 ## Additional Issue: multicall3 Not Available
 
-While implementing the workaround, we discovered another limitation:
+**Status:** ✅ RESOLVED IN v0.9.1
 
-**Problem:** `getBetweenRange` uses `multicall3` internally to batch multiple `getAtIndex` calls efficiently. However, Somnia Testnet does not have `multicall3` deployed (or configured in the chain definition).
-
-**Error:**
-```
-ChainDoesNotSupportContract: Chain "Somnia Testnet" does not support contract "multicall3".
-```
-
-**Impact:**
-- Can't use `getBetweenRange` efficiently
-- Must fall back to individual `getAtIndex` calls
-- Performance degradation when catching up on missed events (N sequential calls instead of 1 batched call)
-
-**Workaround:**
-```typescript
-let newData
-try {
-  newData = await sdk.streams.getBetweenRange(schemaId, publisher, start, end)
-} catch (error) {
-  // Fallback: fetch each index individually
-  newData = []
-  for (let i = start; i <= end; i++) {
-    const data = await sdk.streams.getAtIndex(schemaId, publisher, i)
-    if (data && !(data instanceof Error)) {
-      newData.push(...data)
-    }
-  }
-}
-```
-
-**Recommendation:** Deploy multicall3 to Somnia or add it to the chain configuration so `getBetweenRange` can work efficiently.
+`getBetweenRange` in v0.9.1+ now uses a new contract view function instead of multicall3. This resolves the issue completely - `getBetweenRange` now works on all chains without requiring multicall3 deployment!
 
 ---
 
