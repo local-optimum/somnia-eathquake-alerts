@@ -72,12 +72,20 @@ async function main() {
     )
     console.log(`✅ Event schema registered! TX: ${eventTx}`)
     
-    // Wait for transaction confirmation
+    // Wait for transaction confirmation (with timeout)
     if (eventTx) {
-      console.log('⏳ Waiting for transaction confirmation...')
+      console.log('⏳ Waiting for transaction confirmation (30s timeout)...')
       const publicClient = getPublicClient()
-      await publicClient.waitForTransactionReceipt({ hash: eventTx as `0x${string}` })
-      console.log('✅ Transaction confirmed!\n')
+      try {
+        await publicClient.waitForTransactionReceipt({ 
+          hash: eventTx as `0x${string}`,
+          timeout: 30_000 // 30 seconds
+        })
+        console.log('✅ Transaction confirmed!\n')
+      } catch (error) {
+        console.log('⏱️  Timeout waiting for confirmation (transaction likely still pending)')
+        console.log('   You can check the transaction status on the explorer\n')
+      }
     }
   } catch (error) {
     const err = error as Error
