@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import { encodeFunctionData, decodeFunctionResult } from 'viem'
-import { SchemaEncoder } from '@somnia-chain/streams'
-import { EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS, EARTHQUAKE_SCHEMA } from '@/lib/constants'
+import { EARTHQUAKE_SCHEMA_ID, PUBLISHER_ADDRESS } from '@/lib/constants'
 import { decodeEarthquake } from '@/lib/earthquake-encoding'
 import { getClientSDK, getClientFetchSDK } from '@/lib/client-sdk'
 import type { Earthquake } from '@/types/earthquake'
@@ -179,9 +178,6 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
         
         const protocolInfo = protocolInfoResult
         
-        // Create schema encoder
-        const schemaEncoder = new SchemaEncoder(EARTHQUAKE_SCHEMA)
-        
         // Subscribe to EarthquakeDetected events
         const sub = await sdk.streams.subscribe({
           somniaStreamsEventId: 'EarthquakeDetected',
@@ -223,21 +219,8 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
               
               console.log('✅ Received latest earthquake from ethCall (ZERO additional fetches!)')
               
-              // Decode using SchemaEncoder (v0.9.1 feature!)
-              // @ts-expect-error - decode method exists in v0.9.1 but types may not be updated yet
-              const decoded = schemaEncoder.decode(lastPublishedData)
-              
-              // Parse into Earthquake object
-              const quake: Earthquake = {
-                earthquakeId: String(decoded[0]?.value || ''),
-                location: String(decoded[1]?.value || ''),
-                magnitude: Number(decoded[2]?.value || 0) / 10,
-                depth: Number(decoded[3]?.value || 0) / 1000,
-                latitude: Number(decoded[4]?.value || 0) / 1000000,
-                longitude: Number(decoded[5]?.value || 0) / 1000000,
-                timestamp: Number(decoded[6]?.value || 0),
-                url: String(decoded[7]?.value || '')
-              }
+              // Decode earthquake data (SchemaEncoder.decode not available yet in v0.9.1)
+              const quake = decodeEarthquake(lastPublishedData[0])
               
               console.log(`📊 Decoded: M${quake.magnitude.toFixed(1)} - ${quake.location}`)
               
