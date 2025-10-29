@@ -83,47 +83,37 @@ async function main() {
   console.log('')
 
   if (rawResult?.data) {
-    // Decode the result
+    // Decode the result (it's a SINGLE bytes value, not bytes[])
     console.log('🔓 Decoding result...')
     const decoded = decodeFunctionResult({
       abi: protocolInfo.abi,
       functionName: 'getLastPublishedDataForSchema',
       data: rawResult.data
-    }) as readonly `0x${string}`[]
+    }) as `0x${string}` // Single bytes value!
     
     console.log('✅ Decoded result:')
     console.log('   Type:', typeof decoded)
-    console.log('   Is Array:', Array.isArray(decoded))
-    console.log('   Length:', decoded?.length)
+    console.log('   Value:', decoded.slice(0, 66) + '...')
+    console.log('   Length:', decoded?.length, 'chars')
     console.log('')
     
-    if (decoded && Array.isArray(decoded)) {
-      console.log('📦 Array contents:')
-      decoded.forEach((item, i) => {
-        console.log(`   [${i}]:`, item)
-        console.log(`        Length: ${item?.length} bytes`)
-      })
-      console.log('')
-      
-      // Try to decode first earthquake
-      if (decoded.length > 0 && decoded[0] && decoded[0] !== '0x') {
-        console.log('🔍 Attempting to decode first earthquake...')
-        try {
-          const quake = decodeEarthquake(decoded[0])
-          console.log('✅ Successfully decoded earthquake:')
-          console.log('   ID:', quake.earthquakeId)
-          console.log('   Location:', quake.location)
-          console.log('   Magnitude:', quake.magnitude)
-          console.log('   Depth:', quake.depth, 'km')
-          console.log('   Lat/Lon:', quake.latitude, ',', quake.longitude)
-          console.log('   Time:', new Date(quake.timestamp).toISOString())
-          console.log('   URL:', quake.url)
-        } catch (error) {
-          console.error('❌ Failed to decode:', (error as Error).message)
-        }
-      } else {
-        console.warn('⚠️  First element is empty or missing')
+    if (decoded && decoded !== '0x') {
+      console.log('🔍 Attempting to decode earthquake...')
+      try {
+        const quake = decodeEarthquake(decoded)
+        console.log('✅ Successfully decoded earthquake:')
+        console.log('   ID:', quake.earthquakeId)
+        console.log('   Location:', quake.location)
+        console.log('   Magnitude:', quake.magnitude)
+        console.log('   Depth:', quake.depth, 'km')
+        console.log('   Lat/Lon:', quake.latitude, ',', quake.longitude)
+        console.log('   Time:', new Date(quake.timestamp).toISOString())
+        console.log('   URL:', quake.url)
+      } catch (error) {
+        console.error('❌ Failed to decode:', (error as Error).message)
       }
+    } else {
+      console.warn('⚠️  Result is empty (0x)')
     }
   }
 
