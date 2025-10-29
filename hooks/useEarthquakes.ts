@@ -212,8 +212,18 @@ export function useEarthquakes({ onNewEarthquake, onEarthquakesUpdate, minMagnit
                 data: result.simulationResults[0]
               }) as readonly `0x${string}`[]
               
+              console.log('🔍 lastPublishedData type:', typeof lastPublishedData)
+              console.log('🔍 lastPublishedData length:', lastPublishedData?.length)
+              console.log('🔍 lastPublishedData[0]:', lastPublishedData?.[0])
+              console.log('🔍 lastPublishedData[0] length:', lastPublishedData?.[0]?.length)
+              
               if (!lastPublishedData || lastPublishedData.length === 0) {
                 console.warn('⚠️  No earthquake data in ethCall result')
+                return
+              }
+              
+              if (!lastPublishedData[0] || lastPublishedData[0] === '0x') {
+                console.warn('⚠️  First element is empty (0x)')
                 return
               }
               
